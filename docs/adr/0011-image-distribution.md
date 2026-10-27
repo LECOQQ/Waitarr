@@ -22,4 +22,4 @@ the maintainer.
 
 - Nothing is public until the release pull request is merged.
 - Deploying on the seedbox needs either a release or a locally built image
-  (see `VERIFICATION.md`).
+  on that host.

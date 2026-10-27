@@ -5,8 +5,11 @@
 waitarr.toml
 *-state.json
 
-# Agent working files
-.claude/
+# Agent working memory: read by LLMs before intervening, never published
+AGENTS.md
+CLAUDE.md
+.agents
+.claude
 
 # Operating system and editors
 .DS_Store

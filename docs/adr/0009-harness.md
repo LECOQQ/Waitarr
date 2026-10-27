@@ -13,7 +13,7 @@ provenance or commit-body hooks, and none of `secrets`, `check-docs`,
 
 - starter-kits (`kit:poc`, `stack:python-cli`, `architecture:python-clean`,
   GitHub CI and release blocks) was rendered to compare and to seed
-  `AGENTS.md`, `LICENSE` and `.editorconfig`.
+  the agent rules, `LICENSE` and `.editorconfig`.
 - The Makefile, gate scripts (`scripts/check_*.py`, `docker_tags.py`),
   hooks and workflows follow qbit-ops, copied verbatim where generic.
 - Improvements over qbit-ops: `deps-audit` (pip-audit, from

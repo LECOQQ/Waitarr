@@ -18,4 +18,5 @@ request.
 
 - The release-please pull request exists and stays open; nothing is
   released.
-- The friction is recorded in `docs/dev/frictions.md`.
+- The friction is recorded in the agent's working notes, which are not
+  published.
