@@ -1,0 +1,90 @@
+# Waitarr configuration -- copy to waitarr.toml and adapt.
+#
+# Secrets never go in this file. Each one is read from the environment,
+# or from a file whose path the environment (or this file) names:
+#
+#   WAITARR_<NAME>_API_KEY   / WAITARR_<NAME>_API_KEY_FILE   (Jellyfin source)
+#   WAITARR_<NAME>_PASSWORD  / WAITARR_<NAME>_PASSWORD_FILE  (qBittorrent target)
+#
+# where <NAME> is the entry's `name` in upper case, `-` becoming `_`.
+# docs/CONFIGURATION.md lists every key and environment variable.
+
+# "observe" logs every decision and writes nothing, anywhere. Start
+# there; switch to "active" once the log says what you expect.
+mode = "observe"
+
+# How often Jellyfin and qBittorrent are read.
+poll_interval = "15s"
+
+# What Waitarr owns, so a restart or a crash gives it back. Keep it on a
+# volume that survives the container.
+state_file = "/data/state.json"
+
+# Give everything back when Waitarr stops.
+restore_on_exit = true
+
+log_level = "INFO"
+
+[policy]
+# The v1 strategy: throttle every target while anything plays.
+strategy = "global"
+
+# How long after the last playback the speed comes back. Covers a pause,
+# a seek, the gap between two episodes.
+release_after = "3m"
+
+# Which playbacks count. Empty lists mean "all of them". Names compare
+# case-insensitively.
+users = []            # only these Jellyfin users count
+ignore_users = []     # these never count
+ignore_devices = []   # e.g. ["Kitchen speaker"]
+ignore_clients = []   # e.g. ["Jellyfin Media Player"]
+media_types = []      # e.g. ["Movie", "Episode"] to ignore music
+count_paused = false  # a paused session keeps the throttle on
+
+# The limits applied while throttling, as alternative speed limits.
+# Torrents stay connected and seeding, at a trickle. Never 0: to
+# qBittorrent, 0 means unlimited. Omit the table to keep each
+# instance's own alternative limits.
+[throttle]
+download = "1KiB"
+upload = "1KiB"
+
+[http]
+# GET /healthz for supervision. "" disables the endpoint.
+listen = "0.0.0.0:8778"
+# POST /hooks/jellyfin from Jellyfin's webhook plugin makes Waitarr
+# react at once instead of at the next poll. Polling stays the safety
+# net. Optional token: WAITARR_WEBHOOK_TOKEN.
+webhook = false
+
+[notify]
+# Consecutive failed reads of a service before a failure notification.
+# Destinations come from the environment only: WAITARR_NOTIFY_WEBHOOK_URL,
+# WAITARR_NOTIFY_NTFY_URL (+ WAITARR_NOTIFY_NTFY_TOKEN),
+# WAITARR_HEALTHCHECKS_URL.
+failure_threshold = 2
+healthchecks_interval = "60s"
+
+[[sources]]
+name = "jellyfin"
+type = "jellyfin"
+url = "http://jellyfin:8096"
+# API key (Dashboard > API Keys): WAITARR_JELLYFIN_API_KEY
+
+[[targets]]
+name = "main"
+type = "qbittorrent"
+url = "http://qbittorrent:8080"
+username = "admin"
+# Password: WAITARR_MAIN_PASSWORD
+# Per-instance limits override [throttle]:
+# throttle = { download = "1KiB", upload = "1KiB" }
+
+# A second instance is one more entry:
+# [[targets]]
+# name = "second"
+# type = "qbittorrent"
+# url = "http://qbittorrent-2:8080"
+# username = "admin"
+# # Password: WAITARR_SECOND_PASSWORD
