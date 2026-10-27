@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "local>LECOQQ/renovate-config",
+    "local>LECOQQ/renovate-config:github"
+  ],
+  "packageRules": [
+    {
+      "description": "Waitarr ships as an image and a package: a runtime dependency change is a fix, so release-please ships it",
+      "matchDepTypes": ["dependencies"],
+      "semanticCommitType": "fix"
+    },
+    {
+      "description": "qbit-ops is pinned to a Git revision of an unreleased branch; moved by hand until it is released",
+      "matchDepNames": ["qbit-ops"],
+      "enabled": false
+    },
+    {
+      "description": "The compatibility matrix decides which qBittorrent versions are tested; the test image follows it by hand",
+      "matchDepNames": ["linuxserver/qbittorrent"],
+      "enabled": false
+    }
+  ]
+}

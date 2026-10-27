@@ -1,0 +1,30 @@
+# gitleaks configuration for Waitarr, run through `make secrets`.
+# Extends the upstream default ruleset (same choice as qbit-ops): a
+# hand-written list goes stale the moment a new credential format
+# appears.
+
+[extend]
+useDefault = true
+
+[[rules]]
+# Waitarr's real risk: a Jellyfin API key or a qBittorrent password
+# pasted into a config file, a compose file or a test. A Jellyfin key
+# is 32 hex characters, which entropy alone does not flag reliably.
+id = "waitarr-assigned-secret"
+description = "A Waitarr secret variable assigned a literal value"
+regex = '''(?i)WAITARR_[A-Z0-9_]*(?:API_KEY|PASSWORD|TOKEN)\s*[=:]\s*["']?([A-Za-z0-9._~+/-]{8,})'''
+secretGroup = 1
+tags = ["waitarr"]
+
+[allowlist]
+description = "Fixtures and generated files, never real credentials"
+# `UNMISTAKABLE-` marks a fake secret a test asserts never reaches an
+# output (qbit-ops' convention).
+regexes = ['''UNMISTAKABLE-[A-Z0-9-]+''', '''\$\{WAITARR_''']
+paths = [
+    '''(^|/)\.venv/''',
+    '''(^|/)dist/''',
+    '''(^|/)htmlcov/''',
+    '''(^|/)__pycache__/''',
+    '''(^|/)poetry\.lock$''',
+]

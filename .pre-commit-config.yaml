@@ -1,0 +1,18 @@
+repos:
+  - repo: local
+    hooks:
+      - id: commitizen-check
+        name: Validate Conventional Commit message
+        entry: poetry run cz check --commit-msg-file
+        language: system
+        stages: [commit-msg]
+      - id: commit-provenance
+        name: Refuse a forbidden provenance trailer
+        entry: python3 scripts/check_commit_provenance.py --commit-msg-file
+        language: system
+        stages: [commit-msg]
+      - id: commit-body
+        name: Refuse a commit body written as prose
+        entry: python3 scripts/check_commit_body.py --commit-msg-file
+        language: system
+        stages: [commit-msg]

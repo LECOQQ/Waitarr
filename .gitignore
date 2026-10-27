@@ -1,0 +1,26 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+waitarr.toml
+*-state.json
+
+# Agent working files
+.claude/
+
+# Operating system and editors
+.DS_Store
+.vscode/
+
+# Python environments, caches and build artefacts
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.sync-stamp

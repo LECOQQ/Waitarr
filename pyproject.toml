@@ -1,0 +1,90 @@
+[tool.poetry]
+# Legacy Poetry layout, like qbit-ops: Release Please's `python` release
+# type updates `[tool.poetry].version`.
+name = "waitarr"
+version = "0.0.0"
+description = "Throttle qBittorrent while something plays on Jellyfin, without pausing a single torrent, then give the speed back."
+authors = ["LECOQQ <50244398+LECOQQ@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/LECOQQ/Waitarr"
+repository = "https://github.com/LECOQQ/Waitarr"
+documentation = "https://github.com/LECOQQ/Waitarr/blob/main/docs/CONFIGURATION.md"
+keywords = ["qbittorrent", "jellyfin", "throttle", "homelab", "raspberry-pi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: No Input/Output (Daemon)",
+    "Intended Audience :: System Administrators",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Communications :: File Sharing",
+    "Topic :: Multimedia :: Video",
+    "Typing :: Typed",
+]
+packages = [{ include = "waitarr", from = "src" }]
+
+[tool.poetry.urls]
+Changelog = "https://github.com/LECOQQ/Waitarr/blob/main/CHANGELOG.md"
+Issues = "https://github.com/LECOQQ/Waitarr/issues"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+requests = "^2.32"
+typer = ">=0.12,<1"
+packaging = ">=24"
+qbit-ops = {git = "https://github.com/LECOQQ/qbit-ops.git", rev = "92e54547b4ee8566bf91e1c55637f380c76bb03f"}
+
+[tool.poetry.scripts]
+waitarr = "waitarr.cli:main"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+ruff = "*"
+pytest = "*"
+pytest-cov = "*"
+pyright = "*"
+commitizen = "*"
+pre-commit = "*"
+pip-audit = "*"
+twine = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 80
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 80
+target-version = "py312"
+exclude = [".venv", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "BLE", "S110", "S112"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert; the blind-except rule guards production code only.
+"tests/**" = ["BLE"]
+
+[tool.pyright]
+include = ["src", "tests", "scripts"]
+typeCheckingMode = "basic"
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "docker: tests that start disposable containers (real qBittorrent); run by `make test-docker`, never by `make check`.",
+    "image: tests that build the container image locally (never push); run by `make check-image`.",
+    "network: tests that reach the network (resolve dependencies from PyPI); run by `make check-dist`.",
+]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.0.0"
+tag_format = "v$version"
