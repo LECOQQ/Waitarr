@@ -1,0 +1,54 @@
+# Only pyproject.toml, poetry.lock, README.md, LICENSE and src/ build the
+# image. Everything else bloats the context or leaks local state into it.
+
+# Secrets and local configuration
+.env
+.env.*
+waitarr.toml
+*-state.json
+
+# Agent documents
+AGENTS.md
+CLAUDE.md
+BRIEF.md
+.claude
+
+# Version control, CI, tooling
+.git
+.gitignore
+.github
+.pre-commit-config.yaml
+.gitleaks.toml
+renovate.json
+release-please-config.json
+.release-please-manifest.json
+.editorconfig
+Makefile
+scripts
+tests
+config
+deploy
+
+# Python environments, caches and build artefacts
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+dist
+build
+*.egg-info
+.sync-stamp
+
+# Documentation (README.md stays: it is the wheel's long description)
+docs
+CHANGELOG.md
+CONTRIBUTING.md
+PHILOSOPHY.md
+VERIFICATION.md
+
+Dockerfile
+.dockerignore
+docker-compose.yml

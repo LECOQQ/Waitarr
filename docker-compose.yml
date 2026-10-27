@@ -1,0 +1,23 @@
+# Waitarr -- example Compose file. Copy it next to a `waitarr.toml`
+# (from config/waitarr.example.toml) and a `.env` (from .env.example).
+services:
+  waitarr:
+    image: ghcr.io/lecoqq/waitarr:0.0.0 # x-release-please-version
+    container_name: waitarr
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+      # Secrets, one per source and target, named after each entry's `name`:
+      - WAITARR_JELLYFIN_API_KEY=${WAITARR_JELLYFIN_API_KEY:?set it in .env}
+      - WAITARR_MAIN_PASSWORD=${WAITARR_MAIN_PASSWORD:?set it in .env}
+      # Optional failure notifications and dead-man's switch:
+      - WAITARR_NOTIFY_NTFY_URL=${WAITARR_NOTIFY_NTFY_URL:-}
+      - WAITARR_HEALTHCHECKS_URL=${WAITARR_HEALTHCHECKS_URL:-}
+    volumes:
+      - ./waitarr.toml:/config/waitarr.toml:ro
+      - ./data:/data
+    ports:
+      # The health endpoint; bind it to one address of your LAN.
+      - "${HOST_IP:-127.0.0.1}:${WAITARR_PORT:-8778}:8778"
+    # Stopping gives the speed back: leave time for it.
+    stop_grace_period: 30s
