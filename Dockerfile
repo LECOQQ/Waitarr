@@ -28,7 +28,8 @@ ENV VIRTUAL_ENV=/opt/waitarr \
 RUN pip install "poetry>=2,<3" \
     && python -m venv /opt/waitarr \
     && poetry install --only main --no-root \
-    && /opt/waitarr/bin/pip install --no-deps .
+    && /opt/waitarr/bin/pip install --no-deps . \
+    && /opt/waitarr/bin/pip uninstall --yes pip
 
 
 FROM ${PYTHON_IMAGE} AS runtime
@@ -55,6 +56,11 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 COPY --from=builder /opt/waitarr /opt/waitarr
 ENV PATH=/opt/waitarr/bin:$PATH
+
+# Nothing installs at runtime: pip, and the copy ensurepip bundles, are
+# only attack surface (`make vulns` flags their known vulnerabilities).
+RUN /usr/local/bin/python -m pip uninstall --yes pip \
+    && rm -rf /usr/local/lib/python3.12/ensurepip/_bundled
 
 # Non-root. /data holds the state file and must survive the container.
 RUN groupadd --gid 1000 waitarr \
