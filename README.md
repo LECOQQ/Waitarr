@@ -54,21 +54,32 @@ In qBittorrent, *Options > Speed > Rate Limits Settings*: check *Apply rate
 limit to µTP protocol*, or µTP peers ignore the throttle (Waitarr warns at
 startup).
 
-## 🚀 Install in three minutes
+## 🚀 Install with Compose
 
-```bash
-mkdir waitarr && cd waitarr
-curl -fsSLO https://raw.githubusercontent.com/LECOQQ/Waitarr/main/docker-compose.yml
-curl -fsSL -o .env https://raw.githubusercontent.com/LECOQQ/Waitarr/main/.env.example
-curl -fsSL -o waitarr.toml https://raw.githubusercontent.com/LECOQQ/Waitarr/main/config/waitarr.example.toml
-chmod 600 .env
+Copy this into a `docker-compose.yml`, change the four values, start it:
+
+```yaml
+services:
+  waitarr:
+    image: ghcr.io/lecoqq/waitarr:0.0.0 # x-release-please-version
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Paris
+      WAITARR_MODE: observe # log only; "active" throttles
+      WAITARR_JELLYFIN_URL: http://jellyfin:8096
+      WAITARR_JELLYFIN_API_KEY: CHANGE-ME # Jellyfin: Dashboard > API Keys
+      WAITARR_QBIT_INSTANCES: main # several: main,seedbox
+      WAITARR_MAIN_URL: http://qbittorrent:8080
+      WAITARR_MAIN_PASSWORD: CHANGE-ME # qBittorrent WebUI password
+    volumes:
+      - waitarr-data:/data
+    ports:
+      - "127.0.0.1:8778:8778" # health endpoint
+    stop_grace_period: 30s
+
+volumes:
+  waitarr-data:
 ```
-
-1. In `waitarr.toml`, set the `url` of Jellyfin and of each qBittorrent,
-   and the qBittorrent `username`.
-2. In `.env`, set `WAITARR_JELLYFIN_API_KEY` (Jellyfin: *Dashboard > API
-   Keys*) and `WAITARR_MAIN_PASSWORD` (the qBittorrent WebUI password).
-3. Start it:
 
 ```bash
 docker compose up -d
@@ -76,19 +87,24 @@ docker compose exec waitarr waitarr check
 docker compose logs -f waitarr
 ```
 
-Want to see first? Set `mode = "observe"` (or `WAITARR_MODE=observe` in
-`.env`): it logs what it would do and touches nothing.
+Play something: the log says `would throttle`. Happy with what you read?
+Set `WAITARR_MODE: active` and run `docker compose up -d` again.
 
-Image: `ghcr.io/lecoqq/waitarr:0.0.0` <!-- x-release-please-version -->, amd64 and arm64.
-Prefer Python? `uv tool install waitarr` or `pipx install waitarr`, then
-`waitarr run --config waitarr.toml`.
+Each extra qBittorrent is a name in `WAITARR_QBIT_INSTANCES` with its own
+`WAITARR_<NAME>_URL` and `WAITARR_<NAME>_PASSWORD`. Keep the secrets out
+of the file with a `.env` ([.env.example](.env.example)); the repository's
+[docker-compose.yml](docker-compose.yml) is set up that way.
+
+Image: amd64 and arm64. Prefer Python? See
+[docs/PYTHON.md](docs/PYTHON.md).
 
 ## ⚙️ Configuration
 
 Delay before the speed comes back, throttle limits, which users or devices
 count, several qBittorrent instances, health endpoint, ntfy, Healthchecks,
 Jellyfin webhook: all in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
-The commented example is
+Everything above is also settable from a TOML file for advanced setups;
+the commented example is
 [config/waitarr.example.toml](config/waitarr.example.toml).
 
 ## 🧠 How it works

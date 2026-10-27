@@ -1,28 +1,35 @@
-# Waitarr -- example Compose file. Copy it next to a `waitarr.toml`
-# (from config/waitarr.example.toml) and a `.env` (from .env.example).
+# Waitarr -- example Compose file. Fill in the values marked CHANGE-ME,
+# or keep the secrets in a `.env` next to this file (see .env.example).
 services:
   waitarr:
     image: ghcr.io/lecoqq/waitarr:0.0.0 # x-release-please-version
     container_name: waitarr
     restart: unless-stopped
     environment:
-      - TZ=${TZ:-Etc/UTC}
-      # Secrets, one per source and target, named after each entry's `name`:
-      - WAITARR_JELLYFIN_API_KEY=${WAITARR_JELLYFIN_API_KEY:?set it in .env}
-      - WAITARR_MAIN_PASSWORD=${WAITARR_MAIN_PASSWORD:?set it in .env}
-      # Optional overrides; left empty in .env, waitarr.toml decides, then
-      # the default (mode: active):
-      - WAITARR_MODE=${WAITARR_MODE:-}
-      - WAITARR_LOG_LEVEL=${WAITARR_LOG_LEVEL:-}
-      - WAITARR_POLL_INTERVAL=${WAITARR_POLL_INTERVAL:-}
+      TZ: ${TZ:-Etc/UTC}
+      # "observe" only logs what Waitarr would do; "active" throttles.
+      WAITARR_MODE: ${WAITARR_MODE:-observe}
+      # Jellyfin: Dashboard > API Keys > +
+      WAITARR_JELLYFIN_URL: http://jellyfin:8096
+      WAITARR_JELLYFIN_API_KEY: ${WAITARR_JELLYFIN_API_KEY:?set it in .env}
+      # One name per qBittorrent instance, comma separated. Each name
+      # reads WAITARR_<NAME>_URL, _USERNAME (default admin) and _PASSWORD.
+      WAITARR_QBIT_INSTANCES: main
+      WAITARR_MAIN_URL: http://qbittorrent:8080
+      WAITARR_MAIN_PASSWORD: ${WAITARR_MAIN_PASSWORD:?set it in .env}
+      # Optional; left empty, the default applies:
+      WAITARR_LOG_LEVEL: ${WAITARR_LOG_LEVEL:-}
+      WAITARR_POLL_INTERVAL: ${WAITARR_POLL_INTERVAL:-}
       # Optional failure notifications and dead-man's switch:
-      - WAITARR_NOTIFY_NTFY_URL=${WAITARR_NOTIFY_NTFY_URL:-}
-      - WAITARR_HEALTHCHECKS_URL=${WAITARR_HEALTHCHECKS_URL:-}
+      WAITARR_NOTIFY_NTFY_URL: ${WAITARR_NOTIFY_NTFY_URL:-}
+      WAITARR_HEALTHCHECKS_URL: ${WAITARR_HEALTHCHECKS_URL:-}
     volumes:
-      - ./waitarr.toml:/config/waitarr.toml:ro
-      - ./data:/data
+      - waitarr-data:/data
     ports:
       # The health endpoint; bind it to one address of your LAN.
       - "${HOST_IP:-127.0.0.1}:${WAITARR_PORT:-8778}:8778"
     # Stopping gives the speed back: leave time for it.
     stop_grace_period: 30s
+
+volumes:
+  waitarr-data:
