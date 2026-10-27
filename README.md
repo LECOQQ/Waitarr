@@ -76,8 +76,8 @@ docker compose exec waitarr waitarr check
 docker compose logs -f waitarr
 ```
 
-Want to see first? Set `mode = "observe"` in `waitarr.toml`: it logs what
-it would do and touches nothing.
+Want to see first? Set `mode = "observe"` (or `WAITARR_MODE=observe` in
+`.env`): it logs what it would do and touches nothing.
 
 Image: `ghcr.io/lecoqq/waitarr:0.0.0` <!-- x-release-please-version -->, amd64 and arm64.
 Prefer Python? `uv tool install waitarr` or `pipx install waitarr`, then

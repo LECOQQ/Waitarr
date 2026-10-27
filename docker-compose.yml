@@ -10,6 +10,11 @@ services:
       # Secrets, one per source and target, named after each entry's `name`:
       - WAITARR_JELLYFIN_API_KEY=${WAITARR_JELLYFIN_API_KEY:?set it in .env}
       - WAITARR_MAIN_PASSWORD=${WAITARR_MAIN_PASSWORD:?set it in .env}
+      # Optional overrides; left empty in .env, waitarr.toml decides, then
+      # the default (mode: active):
+      - WAITARR_MODE=${WAITARR_MODE:-}
+      - WAITARR_LOG_LEVEL=${WAITARR_LOG_LEVEL:-}
+      - WAITARR_POLL_INTERVAL=${WAITARR_POLL_INTERVAL:-}
       # Optional failure notifications and dead-man's switch:
       - WAITARR_NOTIFY_NTFY_URL=${WAITARR_NOTIFY_NTFY_URL:-}
       - WAITARR_HEALTHCHECKS_URL=${WAITARR_HEALTHCHECKS_URL:-}

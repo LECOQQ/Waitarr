@@ -12,8 +12,8 @@ writing anything.
 ## 🔀 Precedence
 
 For every key that has a variable: **the variable, then the file, then
-the default**. A variable set to an empty value counts as absent, so a
-Compose file can pass `WAITARR_MODE=${WAITARR_MODE:-}` and leave
+the default**. A variable set to an empty value counts as absent, so the
+example Compose file's `WAITARR_MODE=${WAITARR_MODE:-}` leaves
 `waitarr.toml` in charge while `.env` does not set it. Secrets follow the
 same rule: an empty `WAITARR_<NAME>_PASSWORD` falls back to its `_FILE`.
 
