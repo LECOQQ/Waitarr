@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
-from waitarr.core.model import Playback, ServiceVersion, TargetState
+from waitarr.core.model import Diagnostic, Playback, ServiceVersion, TargetState
 
 __all__ = [
     "ActivitySource",
@@ -63,9 +63,9 @@ class ThrottleTarget(Protocol):
 
     def read(self) -> TargetState: ...
 
-    def diagnose(self) -> Sequence[str]:
-        """Return warnings about settings that defeat throttling (e.g. a
-        scheduler that also flips the throttle switch)."""
+    def diagnose(self) -> Sequence[Diagnostic]:
+        """Return the settings that defeat or weaken throttling (a
+        scheduler flipping the switch, traffic outside the limits)."""
         ...
 
     def apply(self, state: TargetState) -> None:

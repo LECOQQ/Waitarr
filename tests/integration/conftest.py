@@ -71,6 +71,9 @@ def reset(client: qbittorrentapi.Client) -> None:
             "dl_limit": 0,
             "up_limit": 0,
             "scheduler_enabled": False,
+            "bittorrent_protocol": 0,
+            "limit_utp_rate": True,
+            "limit_lan_peers": True,
         }
     )
     if str(client.transfer_speed_limits_mode()) == "1":

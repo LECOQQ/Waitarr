@@ -5,7 +5,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
-from waitarr.core.model import Limits, Playback, ServiceVersion, TargetState
+from waitarr.core.model import (
+    Diagnostic,
+    Limits,
+    Playback,
+    ServiceVersion,
+    TargetState,
+)
 from waitarr.core.ports import Notification, ServiceUnavailable
 
 UNTHROTTLED = TargetState(False, Limits(0, 0))
@@ -72,12 +78,13 @@ class FakeTarget:
         self.writes: list[TargetState] = []
         self.down = False
         self.fail_writes = False
+        self.diagnostics: list[Diagnostic] = []
 
     def version(self) -> ServiceVersion:
         return ServiceVersion("qBittorrent", "v5.1.0", "2.11.4")
 
-    def diagnose(self) -> list[str]:
-        return []
+    def diagnose(self) -> list[Diagnostic]:
+        return list(self.diagnostics)
 
     def read(self) -> TargetState:
         if self.down:

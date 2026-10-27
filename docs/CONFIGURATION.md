@@ -115,6 +115,21 @@ Password: `WAITARR_<NAME>_PASSWORD`, or a file named by
 `<NAME>` is the entry's `name` in upper case, `-` becoming `_`: a target
 named `seedbox-2` reads `WAITARR_SEEDBOX_2_PASSWORD`.
 
+## 🩺 Startup checks
+
+At startup, every hour, and in `waitarr check`, Waitarr reads each
+qBittorrent's preferences and reports what lets traffic escape the
+throttle. It never changes these settings itself.
+
+| Severity | Setting | Fix in qBittorrent |
+| --- | --- | --- |
+| warning | µTP enabled (`bittorrent_protocol` TCP and µTP, or µTP) and *Apply rate limit to µTP protocol* unchecked: µTP peers ignore the throttle | *Options > Speed > Rate Limits Settings* > *Apply rate limit to µTP protocol* |
+| notice | *Apply rate limit to peers on LAN* unchecked: a peer on the local network still reads the disk at full speed | same place, *Apply rate limit to peers on LAN* |
+| warning | The speed scheduler is enabled: it flips the same switch | *Options > Speed > Alternative Rate Limits* > *Schedule the use of alternative rate limits* |
+
+The findings are logged and listed under `warnings` in `GET /healthz`;
+they do not change its status code.
+
 ## 🧾 Exit codes
 
 | Code | Meaning |

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from qbit_core import QbitConfig, QbitCoreError, create_qbit_client
@@ -15,12 +15,13 @@ from qbit_core.features.transfer import (
 )
 from qbit_core.qbit.client import is_qbit_error
 
-from waitarr.core.model import Limits, ServiceVersion, TargetState
+from waitarr.core.model import Diagnostic, Limits, ServiceVersion, TargetState
 from waitarr.core.ports import ServiceUnavailable, WriteRefused
 
 __all__ = [
     "READ_METHODS",
     "QbittorrentTarget",
+    "diagnose_preferences",
     "ReadOnlyClient",
     "WriteForbidden",
 ]
@@ -85,16 +86,10 @@ class QbittorrentTarget:
         )
         return ServiceVersion("qBittorrent", str(version), str(api))
 
-    def diagnose(self) -> list[str]:
+    def diagnose(self) -> list[Diagnostic]:
         client = self._session()
         preferences = self._call(lambda: client.app_preferences())
-        if preferences.get("scheduler_enabled"):
-            return [
-                f"{self._name}: qBittorrent's speed scheduler is enabled. It "
-                "flips the same alternative limits switch, and Waitarr reads "
-                "each flip as a human decision that it must leave alone."
-            ]
-        return []
+        return diagnose_preferences(self._name, preferences)
 
     def read(self) -> TargetState:
         client = self._session()
@@ -142,6 +137,53 @@ class QbittorrentTarget:
                 f"qBittorrent at {self._config.host}: "
                 f"{type(error).__name__}: {error}"
             ) from error
+
+
+# bittorrent_protocol: 0 = TCP and µTP, 1 = TCP only, 2 = µTP only.
+_UTP_PROTOCOLS = frozenset({0, 2})
+_RATE_LIMITS = "Options > Speed > Rate Limits Settings"
+
+
+def diagnose_preferences(
+    name: str, preferences: Mapping[str, Any]
+) -> list[Diagnostic]:
+    """Settings that let traffic escape the limits Waitarr switches on."""
+    found: list[Diagnostic] = []
+    if preferences.get("scheduler_enabled"):
+        found.append(
+            Diagnostic(
+                name,
+                "warning",
+                f"{name}: qBittorrent's speed scheduler is enabled. It flips "
+                "the same alternative limits switch, and Waitarr reads each "
+                "flip as a human decision that it must leave alone.",
+            )
+        )
+    if (
+        preferences.get("bittorrent_protocol") in _UTP_PROTOCOLS
+        and preferences.get("limit_utp_rate") is False
+    ):
+        found.append(
+            Diagnostic(
+                name,
+                "warning",
+                f"{name}: µTP traffic is not rate-limited: throttling will "
+                f'leak. In qBittorrent, check {_RATE_LIMITS} > "Apply rate '
+                'limit to µTP protocol".',
+            )
+        )
+    if preferences.get("limit_lan_peers") is False:
+        found.append(
+            Diagnostic(
+                name,
+                "notice",
+                f"{name}: peers on the local network are not rate-limited, "
+                "so one of them can still read the disk at full speed. If "
+                f'that matters, check {_RATE_LIMITS} > "Apply rate limit to '
+                'peers on LAN".',
+            )
+        )
+    return found
 
 
 def _connect(config: QbitConfig, timeout: float) -> Any:

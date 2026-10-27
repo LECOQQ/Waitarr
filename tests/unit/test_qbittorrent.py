@@ -8,6 +8,7 @@ from waitarr.adapters.qbittorrent import (
     QbittorrentTarget,
     ReadOnlyClient,
     WriteForbidden,
+    diagnose_preferences,
 )
 from waitarr.core.model import Limits, TargetState
 from waitarr.core.ports import ServiceUnavailable
@@ -153,7 +154,7 @@ def test_a_read_only_target_reports_its_version_and_diagnostics():
     qbit = target(fake, read_only=True)
     version = qbit.version()
     assert (version.version, version.api_version) == ("v5.1.4", "2.11.4")
-    assert any("scheduler" in w for w in qbit.diagnose())
+    assert any("scheduler" in d.message for d in qbit.diagnose())
     assert set(fake.calls) <= READ_METHODS
 
 
@@ -249,3 +250,46 @@ def test_the_default_connection_uses_qbit_core(monkeypatch):
     monkeypatch.setattr(adapter, "create_qbit_client", create)
     QbittorrentTarget("main", CONFIG, read_only=True, timeout=3.0).read()
     assert seen["args"] == (CONFIG, 3.0)
+
+
+SAFE = {
+    "bittorrent_protocol": 0,
+    "limit_utp_rate": True,
+    "limit_lan_peers": True,
+}
+
+
+def test_safe_rate_limit_settings_raise_nothing():
+    assert diagnose_preferences("main", SAFE) == []
+
+
+@pytest.mark.parametrize("protocol", [0, 2])
+def test_unlimited_utp_is_a_warning_when_utp_is_in_use(protocol):
+    found = diagnose_preferences(
+        "main",
+        {**SAFE, "bittorrent_protocol": protocol, "limit_utp_rate": False},
+    )
+    assert [(d.severity, d.target) for d in found] == [("warning", "main")]
+    assert "µTP traffic is not rate-limited" in found[0].message
+    assert "Apply rate limit to µTP protocol" in found[0].message
+
+
+def test_unlimited_utp_does_not_matter_over_tcp_only():
+    found = diagnose_preferences(
+        "main", {**SAFE, "bittorrent_protocol": 1, "limit_utp_rate": False}
+    )
+    assert found == []
+
+
+def test_unlimited_lan_peers_is_a_notice():
+    found = diagnose_preferences("main", {**SAFE, "limit_lan_peers": False})
+    assert [d.severity for d in found] == ["notice"]
+    assert "Apply rate limit to peers on LAN" in found[0].message
+
+
+def test_diagnosis_goes_through_the_read_only_client():
+    fake = FakeQbit()
+    fake.preferences.update({"bittorrent_protocol": 0, "limit_utp_rate": False})
+    found = target(fake, read_only=True).diagnose()
+    assert any("µTP" in d.message for d in found)
+    assert set(fake.calls) <= READ_METHODS

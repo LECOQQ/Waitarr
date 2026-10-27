@@ -87,6 +87,14 @@ def status_document(
             }
             for name, health in status.services.items()
         },
+        "warnings": [
+            {
+                "target": d.target,
+                "severity": d.severity,
+                "message": d.message,
+            }
+            for d in status.diagnostics
+        ],
         "targets": {
             name: {
                 "ownership": target.ownership.value,

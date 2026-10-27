@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import signal
 import threading
+import time
 from types import FrameType
 
 from waitarr.adapters.http import HttpSurface, status_document
@@ -19,6 +20,8 @@ __all__ = ["Service"]
 logger = logging.getLogger("waitarr")
 
 _KINDS = {"source": "jellyfin", "target": "qbittorrent"}
+# Settings can be fixed while Waitarr runs: look again every hour.
+_DIAGNOSE_EVERY = 3600.0
 
 
 class Service:
@@ -26,6 +29,7 @@ class Service:
         self._config = config
         self._engine = engine
         self._stop = threading.Event()
+        self._last_diagnosis = 0.0
         self._wake = threading.Event()
         self._http: HttpSurface | None = None
         if config.http.port is not None:
@@ -77,6 +81,8 @@ class Service:
                 except Exception:
                     # A bug must not end the loop silently with a target held.
                     logger.exception("Tick failed; retrying at the next one.")
+                if time.monotonic() - self._last_diagnosis >= _DIAGNOSE_EVERY:
+                    self._diagnose()
                 self._wake.wait(self._config.poll_interval.total_seconds())
                 self._wake.clear()
         finally:
@@ -115,8 +121,17 @@ class Service:
                 else logger.warning
             )
             log("%s: %s.", name, assessment.message)
-        for warning in self._engine.diagnose():
-            logger.warning("%s", warning)
+        self._diagnose()
+
+    def _diagnose(self) -> None:
+        self._last_diagnosis = time.monotonic()
+        for diagnostic in self._engine.diagnose():
+            log = (
+                logger.warning
+                if diagnostic.severity == "warning"
+                else (logger.info)
+            )
+            log("%s", diagnostic.message)
 
     def _install_signal_handlers(self) -> None:
         if threading.current_thread() is not threading.main_thread():

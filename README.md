@@ -48,6 +48,12 @@ each tracker counts a torrent at a crawl has not been measured yet.
 - 🔌 **Stops cleanly**: on shutdown, after a crash or a restart, the state
   it found comes back.
 
+## ✅ Before you start
+
+In qBittorrent, *Options > Speed > Rate Limits Settings*: check *Apply rate
+limit to µTP protocol*, or µTP peers ignore the throttle (Waitarr warns at
+startup).
+
 ## 🚀 Install in three minutes
 
 ```bash

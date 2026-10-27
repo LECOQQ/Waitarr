@@ -342,3 +342,18 @@ def test_the_next_episode_is_logged(caplog):
         'Session: alice now plays "Episode 2" (Living Room on Jellyfin Web).'
         in _messages(caplog)
     )
+
+
+def test_diagnostics_are_kept_for_the_status():
+    from waitarr.core.model import Diagnostic
+
+    w = World()
+    leak = Diagnostic(
+        "main", "warning", "main: µTP traffic is not rate-limited"
+    )
+    w.target.diagnostics = [leak]
+    assert w.engine.diagnose() == [leak]
+    assert w.engine.status().diagnostics == (leak,)
+    w.target.diagnostics = []
+    w.engine.diagnose()
+    assert w.engine.status().diagnostics == ()

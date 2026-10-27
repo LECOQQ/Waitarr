@@ -17,7 +17,13 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
-from waitarr.core.model import Limits, Playback, ServiceVersion, TargetState
+from waitarr.core.model import (
+    Diagnostic,
+    Limits,
+    Playback,
+    ServiceVersion,
+    TargetState,
+)
 from waitarr.core.policy import Demand, ThrottlePolicy
 from waitarr.core.ports import (
     ActivitySource,
@@ -94,6 +100,7 @@ class EngineStatus:
     playbacks: tuple[Playback, ...]
     services: dict[str, ServiceHealth]
     targets: dict[str, TargetStatus]
+    diagnostics: tuple[Diagnostic, ...] = ()
 
     @property
     def healthy(self) -> bool:
@@ -116,6 +123,7 @@ class _Runtime:
     playbacks: tuple[Playback, ...] = ()
     services: dict[str, ServiceHealth] = field(default_factory=dict)
     targets: dict[str, TargetStatus] = field(default_factory=dict)
+    diagnostics: tuple[Diagnostic, ...] = ()
 
 
 class Engine:
@@ -242,28 +250,44 @@ class Engine:
                 )
         return versions
 
-    def diagnose(self) -> list[str]:
-        """Warnings worth reading at startup; reads, never writes."""
-        warnings: list[str] = []
+    def diagnose(self) -> list[Diagnostic]:
+        """Settings that defeat or weaken throttling; reads, never writes.
+
+        The result is kept for the status endpoint until the next call.
+        """
+        found: list[Diagnostic] = []
         for binding in self._targets:
             target = binding.target
             try:
-                warnings.extend(target.diagnose())
+                found.extend(target.diagnose())
                 own = target.read().limits
             except ServiceUnavailable as error:
-                warnings.append(f"{target.name}: cannot be checked ({error})")
+                found.append(
+                    Diagnostic(
+                        target.name,
+                        "warning",
+                        f"{target.name}: cannot be checked ({error})",
+                    )
+                )
                 continue
             if binding.throttle_limits is None and 0 in (
                 own.download,
                 own.upload,
             ):
-                warnings.append(
-                    f"{target.name}: no throttle limits are configured, and "
-                    f"its own alternative limits are {_describe_limits(own)}: "
-                    "throttling would leave that direction unlimited. Set "
-                    "[throttle] download and upload."
+                found.append(
+                    Diagnostic(
+                        target.name,
+                        "warning",
+                        f"{target.name}: no throttle limits are configured, "
+                        "and its own alternative limits are "
+                        f"{_describe_limits(own)}: throttling would leave "
+                        "that direction unlimited. Set [throttle] download "
+                        "and upload.",
+                    )
                 )
-        return warnings
+        with self._lock:
+            self._runtime.diagnostics = tuple(found)
+        return found
 
     def tick(self) -> None:
         now = self._clock()
@@ -342,6 +366,7 @@ class Engine:
                 playbacks=self._runtime.playbacks,
                 services=dict(self._runtime.services),
                 targets=dict(self._runtime.targets),
+                diagnostics=self._runtime.diagnostics,
             )
 
     # -- internals ---------------------------------------------------------

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 __all__ = [
+    "Diagnostic",
     "Limits",
     "Playback",
     "ServiceVersion",
@@ -62,6 +63,19 @@ class Playback:
         where = " on ".join(p for p in (self.device, self.client) if p)
         suffix = f" ({where})" if where else ""
         return f"{who} playing {what}{suffix}"
+
+
+@dataclass(frozen=True)
+class Diagnostic:
+    """A setting that defeats or weakens throttling, found at a check.
+
+    `severity` is "warning" (throttling leaks) or "notice" (it may).
+    Waitarr reports these; it never changes the setting itself.
+    """
+
+    target: str
+    severity: str
+    message: str
 
 
 @dataclass(frozen=True)

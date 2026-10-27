@@ -160,8 +160,9 @@ def check(config_path: ConfigOption = None) -> None:
             f"{format_rate(limits.download)} down / "
             f"{format_rate(limits.upload)} up"
         )
-    for warning in engine.diagnose():
-        typer.echo(f"[WARN] {warning}")
+    for diagnostic in engine.diagnose():
+        mark = "WARN" if diagnostic.severity == "warning" else "NOTE"
+        typer.echo(f"[{mark}] {diagnostic.message}")
     raise typer.Exit(EXIT_OK if ok else EXIT_FAILURE)
 
 

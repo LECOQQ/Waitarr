@@ -254,3 +254,22 @@ def test_the_webhook_token_never_reaches_the_log(make_rig, caplog):
     requests.post(rig.base + "/hooks/jellyfin?token=UNMISTAKABLE-X", timeout=3)
     assert caplog.records
     assert not any("UNMISTAKABLE" in r.getMessage() for r in caplog.records)
+
+
+def test_health_lists_the_warnings_found_at_the_last_check(make_rig):
+    from waitarr.core.model import Diagnostic
+
+    rig = make_rig()
+    rig.target.diagnostics = [
+        Diagnostic("main", "warning", "main: µTP traffic is not rate-limited")
+    ]
+    rig.engine.diagnose()
+    rig.tick()
+    body = requests.get(rig.base + "/healthz", timeout=3).json()
+    assert body["warnings"] == [
+        {
+            "target": "main",
+            "severity": "warning",
+            "message": "main: µTP traffic is not rate-limited",
+        }
+    ]

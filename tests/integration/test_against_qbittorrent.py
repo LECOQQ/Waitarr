@@ -288,3 +288,19 @@ username = "{qbit.username}"
 class RecordingHeartbeatStub:
     def beat(self, *, healthy: bool, message: str) -> None:
         return None
+
+
+def test_unthrottled_utp_and_lan_traffic_are_reported_never_fixed(
+    make_rig, admin
+):
+    rig = make_rig()
+    assert rig.engine.diagnose() == []
+    admin.app_set_preferences(
+        {"limit_utp_rate": False, "limit_lan_peers": False}
+    )
+    found = {d.severity: d.message for d in rig.engine.diagnose()}
+    assert "µTP traffic is not rate-limited" in found["warning"]
+    assert "peers on the local network" in found["notice"]
+    preferences = admin.app_preferences()
+    assert preferences["limit_utp_rate"] is False
+    assert preferences["limit_lan_peers"] is False
