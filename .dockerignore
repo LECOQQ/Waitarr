@@ -52,3 +52,5 @@ VERIFICATION.md
 Dockerfile
 .dockerignore
 docker-compose.yml
+.gitleaksignore
+.osv

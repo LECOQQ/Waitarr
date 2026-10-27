@@ -15,7 +15,7 @@ PLATFORMS ?= linux/amd64,linux/arm64
 
 .PHONY: help doctor info install hooks-install sync run format lint test \
 	test-docker check check-fast check-version check-docs check-ai secrets \
-	deps-audit build check-dist check-image image image-multiarch ci \
+	deps-audit vulns build check-dist check-image image image-multiarch ci \
 	ci-entrypoint clean
 
 .sync-stamp: pyproject.toml poetry.lock
@@ -121,8 +121,31 @@ secrets: ## qa: Scan for committed credentials with gitleaks (GITLEAKS_SCOPE=dir
 		printf 'MISSING: gitleaks. Install it or provide Docker.\n' >&2; exit 1; \
 	fi
 
-deps-audit: sync ## qa: Audit dependencies for known vulnerabilities (needs network)
+deps-audit: sync ## qa: Audit dependencies for known vulnerabilities with pip-audit (needs network)
 	@$(PY) pip-audit
+
+# osv-scanner: the local binary when installed, else its official image.
+# A Python vulnerability fails; a base-image OS one is only listed
+# (scripts/osv_gate.py says why).
+OSV_IMAGE := ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0
+OSV_TMP := .osv
+
+vulns: image ## qa: Scan poetry.lock and the built image with osv-scanner (needs Docker and the network)
+	@rm -rf $(OSV_TMP) && mkdir -p $(OSV_TMP)
+	@docker save $(IMAGE) -o $(OSV_TMP)/image.tar
+	@if command -v osv-scanner >/dev/null 2>&1; then \
+		osv-scanner scan source --lockfile poetry.lock --format json --verbosity error > $(OSV_TMP)/lock.json || true; \
+		osv-scanner scan image --archive $(OSV_TMP)/image.tar --format json --verbosity error > $(OSV_TMP)/image.json || true; \
+	else \
+		docker run --rm -v "$(CURDIR):/src:ro" -w /src $(OSV_IMAGE) \
+			scan source --lockfile poetry.lock --format json --verbosity error > $(OSV_TMP)/lock.json || true; \
+		docker run --rm -v "$(CURDIR)/$(OSV_TMP):/scan:ro" $(OSV_IMAGE) \
+			scan image --archive /scan/image.tar --format json --verbosity error > $(OSV_TMP)/image.json || true; \
+	fi
+	@status=0; \
+	python3 scripts/osv_gate.py --label poetry.lock $(OSV_TMP)/lock.json || status=1; \
+	python3 scripts/osv_gate.py --label "image $(IMAGE)" $(OSV_TMP)/image.json || status=1; \
+	rm -rf $(OSV_TMP); exit $$status
 
 check-fast: sync ## qa: Fast checkpoint: lint, types and hermetic tests
 	@$(MAKE) lint
