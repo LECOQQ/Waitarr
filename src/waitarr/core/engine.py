@@ -43,7 +43,7 @@ from waitarr.core.records import (
     decode_state,
     encode_state,
 )
-from waitarr.core.units import format_rate
+from waitarr.core.units import format_duration, format_rate
 
 __all__ = [
     "Engine",
@@ -159,7 +159,7 @@ class Engine:
                 for b in targets
             },
         )
-        self._previous_sessions: frozenset[tuple[str, str]] = frozenset()
+        self._sessions: dict[tuple[str, str], Playback] = {}
 
     @property
     def simulate(self) -> bool:
@@ -500,20 +500,28 @@ class Engine:
             )
 
     def _log_playback_changes(self, playbacks: Sequence[Playback]) -> None:
-        sessions = frozenset((p.source, p.session_id) for p in playbacks)
-        if sessions == self._previous_sessions:
-            return
-        self._previous_sessions = sessions
-        if playbacks:
-            logger.info(
-                "Sessions now: %s.",
-                "; ".join(
-                    p.describe() + (" [paused]" if p.paused else "")
-                    for p in playbacks
-                ),
-            )
-        else:
+        """One line per session change, so every decision logged next is
+        explained by the line just before it."""
+        current = {(p.source, p.session_id): p for p in playbacks}
+        for key, playback in current.items():
+            previous = self._sessions.get(key)
+            if previous is None:
+                verb = "started, paused," if playback.paused else "started"
+            elif previous.title != playback.title:
+                verb = "now plays"
+            elif previous.paused and not playback.paused:
+                verb = "resumed"
+            elif playback.paused and not previous.paused:
+                verb = "paused"
+            else:
+                continue
+            logger.info("Session: %s.", _session_line(playback, verb))
+        for key, playback in self._sessions.items():
+            if key not in current:
+                logger.info("Session: %s.", _session_line(playback, "stopped"))
+        if self._sessions and not current:
             logger.info("No session is playing anything.")
+        self._sessions = current
 
     def _log_step(
         self,
@@ -537,11 +545,19 @@ class Engine:
                 why,
             )
         elif action is Action.RELEASE and step.write is not None:
+            if demand is None:
+                reason = "Waitarr is giving back what it owns"
+            elif demand.last_activity_at is not None:
+                quiet = format_duration(self._clock() - demand.last_activity_at)
+                reason = f"no counted playback for {quiet}"
+            else:
+                reason = "no counted playback"
             logger.info(
-                "%s: %srelease, restoring the state found before (%s).",
+                "%s: %srelease, restoring the state found before (%s) -- %s.",
                 name,
                 would,
                 _describe_state(step.write),
+                reason,
             )
         elif action is Action.YIELD_ALREADY_THROTTLED:
             logger.info(
@@ -585,6 +601,13 @@ class Engine:
         if down:
             parts.append("unreachable: " + ", ".join(down))
         return ", ".join(parts)
+
+
+def _session_line(playback: Playback, verb: str) -> str:
+    who = playback.user or "someone"
+    what = f'"{playback.title}"' if playback.title else "something"
+    where = " on ".join(p for p in (playback.device, playback.client) if p)
+    return f"{who} {verb} {what}" + (f" ({where})" if where else "")
 
 
 def _describe_limits(limits: Limits) -> str:

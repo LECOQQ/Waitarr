@@ -280,3 +280,65 @@ def test_engaged_record_is_persisted_before_the_write():
     w.source.sessions = [playback()]
     w.tick()
     assert saved_before_write == [Ownership.ENGAGED.value]
+
+
+def _messages(caplog):
+    return [r.getMessage() for r in caplog.records]
+
+
+def test_each_session_change_is_logged_just_before_the_decision(caplog):
+    caplog.set_level("INFO", logger="waitarr")
+    w = World(simulate=True)
+    w.source.sessions = [playback(paused=True)]
+    w.tick()
+    w.source.sessions = [playback()]
+    w.tick()
+    w.source.sessions = [playback(paused=True)]
+    w.tick()
+    w.source.sessions = []
+    w.tick(600)
+    lines = _messages(caplog)
+    started = lines.index(
+        'Session: alice started, paused, "Dune" (Living Room on Jellyfin Web).'
+    )
+    resumed = lines.index(
+        'Session: alice resumed "Dune" (Living Room on Jellyfin Web).'
+    )
+    throttle = next(
+        i for i, m in enumerate(lines) if "[observe] would throttle" in m
+    )
+    paused = lines.index(
+        'Session: alice paused "Dune" (Living Room on Jellyfin Web).'
+    )
+    stopped = lines.index(
+        'Session: alice stopped "Dune" (Living Room on Jellyfin Web).'
+    )
+    release = next(
+        i for i, m in enumerate(lines) if "[observe] would release" in m
+    )
+    assert started < resumed == throttle - 1
+    assert resumed < paused < stopped < release
+    assert lines[release - 1] == "No session is playing anything."
+    assert lines[release].endswith("-- no counted playback for 10m15s.")
+
+
+def test_an_unchanged_session_is_not_logged_again(caplog):
+    caplog.set_level("INFO", logger="waitarr")
+    w = World(simulate=True)
+    w.source.sessions = [playback()]
+    for _ in range(5):
+        w.tick()
+    assert sum(m.startswith("Session:") for m in _messages(caplog)) == 1
+
+
+def test_the_next_episode_is_logged(caplog):
+    caplog.set_level("INFO", logger="waitarr")
+    w = World(simulate=True)
+    w.source.sessions = [playback(title="Episode 1")]
+    w.tick()
+    w.source.sessions = [playback(title="Episode 2")]
+    w.tick()
+    assert (
+        'Session: alice now plays "Episode 2" (Living Room on Jellyfin Web).'
+        in _messages(caplog)
+    )
