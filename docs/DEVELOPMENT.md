@@ -15,6 +15,7 @@ make help           # every target, by category
 | `make secrets` | gitleaks over the working tree (`GITLEAKS_SCOPE=git` for history). |
 | `make check-dist` | Builds the wheel and sdist, `twine check`, and an install smoke test. |
 | `make deps-audit` | `pip-audit` over the locked dependencies. |
+| `make vulns` | osv-scanner over `poetry.lock` and the built image: a Python vulnerability fails, a base-image OS one is listed (`scripts/osv_gate.py`). CI runs the lockfile scan on every pull request, push to `main` and weekly. |
 
 ## 🧪 Test isolation
 
