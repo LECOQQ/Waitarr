@@ -1,0 +1,57 @@
+name: Publish to PyPI
+
+# Prepared, not wired: PyPI refuses a package whose dependencies point at
+# a Git URL, and qbit-ops is one until its next release. Once Waitarr
+# depends on a released qbit-ops, release-please.yml dispatches this the
+# way it dispatches publish-container.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (vX.Y.Z) to build, verify and publish."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/waitarr
+    permissions:
+      # Trusted Publishing: no PyPI token is stored anywhere.
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: snok/install-poetry@v1
+
+      - name: Verify the declared version agrees with the release tag
+        run: python3 scripts/check_version_sync.py --tag "${{ inputs.tag }}"
+
+      - name: Build wheel and sdist
+        run: poetry build
+
+      - name: Validate the built artefacts
+        run: |
+          python3 -m pip install --upgrade twine
+          python3 -m twine check --strict dist/*
+
+      - name: Verify the entrypoint works from the built wheel
+        run: |
+          python3 -m venv /tmp/entrypoint-check
+          /tmp/entrypoint-check/bin/python -m pip install --quiet dist/*.whl
+          /tmp/entrypoint-check/bin/waitarr --version
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
