@@ -8,6 +8,10 @@
 #
 # where <NAME> is the entry's `name` in upper case, `-` becoming `_`.
 # docs/CONFIGURATION.md lists every key and environment variable.
+#
+# The common case (one Jellyfin, some qBittorrent) needs no file: set
+# WAITARR_JELLYFIN_URL, WAITARR_QBIT_INSTANCES and WAITARR_<NAME>_URL.
+# This file is for the advanced cases; a variable always wins over it.
 
 # "active" (the default) throttles during playback. Want to see first?
 # "observe" logs what it would do and touches nothing. WAITARR_MODE, when

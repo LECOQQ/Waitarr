@@ -130,6 +130,72 @@ def env_name(service: str, field_name: str) -> str:
     return f"WAITARR_{service.upper().replace('-', '_')}_{field_name.upper()}"
 
 
+def _with_environment(
+    reader: _Reader, data: Mapping[str, Any], environ: Mapping[str, str]
+) -> dict[str, Any]:
+    """Overlay the Compose-friendly variables on the file's entries.
+
+    `WAITARR_JELLYFIN_URL` defines (or overrides the URL of) the source
+    named `jellyfin`. `WAITARR_QBIT_INSTANCES` is the list of target
+    names, authoritative over the file's targets; each reads
+    `WAITARR_<NAME>_URL`, `_USERNAME` and `_THROTTLE_DOWNLOAD` / `_UPLOAD`.
+    Variable first, then the file, then the default; `environ` comes
+    through `present`, so a blank variable is already gone.
+    """
+    merged = dict(data)
+
+    jellyfin_url = environ.get("WAITARR_JELLYFIN_URL")
+    if jellyfin_url:
+        sources = [
+            dict(e) for e in data.get("sources", []) if isinstance(e, dict)
+        ]
+        source = next((e for e in sources if e.get("name") == "jellyfin"), None)
+        if source is None:
+            source = {"name": "jellyfin", "type": "jellyfin"}
+            sources.append(source)
+        source["url"] = jellyfin_url
+        merged["sources"] = sources
+
+    listed = environ.get("WAITARR_QBIT_INSTANCES")
+    if listed:
+        files: dict[Any, Any] = {
+            e.get("name"): e
+            for e in data.get("targets", [])
+            if isinstance(e, dict)
+        }
+        targets: list[dict[str, Any]] = []
+        for name in re.split(r"[,\s]+", listed.strip()):
+            if not name:
+                continue
+            if not _NAME.match(name):
+                reader.fail(
+                    f"WAITARR_QBIT_INSTANCES: '{name}' is not a valid name: "
+                    "lowercase letters, digits, '-' or '_', at most 32 "
+                    "characters"
+                )
+                continue
+            base: dict[str, Any] = files.get(name) or {
+                "name": name,
+                "username": "admin",
+            }
+            entry: dict[str, Any] = dict(base)
+            entry["name"] = name
+            entry.setdefault("type", "qbittorrent")
+            url = environ.get(env_name(name, "url"))
+            if url:
+                entry["url"] = url
+            limits: dict[str, Any] = dict(entry.get("throttle") or {})
+            for key in ("download", "upload"):
+                value = environ.get(env_name(name, f"throttle_{key}"))
+                if value:
+                    limits[key] = value
+            if limits:
+                entry["throttle"] = limits
+            targets.append(entry)
+        merged["targets"] = targets
+    return merged
+
+
 class _Reader:
     """Collects problems while reading one config document."""
 
@@ -369,7 +435,11 @@ def _entries(
 ) -> list[dict[str, Any]]:
     raw = data.get(key, [])
     if not isinstance(raw, list) or not raw:
-        reader.fail(f"declare at least one [[{key}]] entry")
+        hint = {
+            "sources": " (or set WAITARR_JELLYFIN_URL)",
+            "targets": " (or set WAITARR_QBIT_INSTANCES)",
+        }[key]
+        reader.fail(f"declare at least one [[{key}]] entry{hint}")
         return []
     valid: list[dict[str, Any]] = []
     for index, entry in enumerate(raw):
@@ -418,6 +488,7 @@ def parse_config(
 ) -> AppConfig:
     environ = present(environ)
     reader = _Reader(environ)
+    data = _with_environment(reader, data, environ)
     reader.unknown(
         "top level",
         data,
@@ -601,6 +672,11 @@ def load_config(
     try:
         data = tomllib.loads(resolved.read_text(encoding="utf-8"))
     except FileNotFoundError as error:
+        if env.get("WAITARR_JELLYFIN_URL") and env.get(
+            "WAITARR_QBIT_INSTANCES"
+        ):
+            # Compose-only setup: the environment defines every service.
+            return parse_config({}, path=resolved, environ=env)
         raise ConfigError(
             [
                 f"{resolved}: no such file; copy config/waitarr.example.toml "

@@ -1,8 +1,12 @@
 # ⚙️ Configuration
 
-Waitarr reads one TOML file, then environment variables. Secrets come
-from the environment or from files, never from the TOML file: Waitarr
-refuses a `password`, `api_key` or `token` written there.
+Waitarr reads environment variables, then a TOML file, then defaults
+(see [Precedence](#-precedence)). The common case (one Jellyfin, one or
+more qBittorrent) needs no file at all: see
+[Compose-only setup](#-compose-only-setup). The TOML file is for the
+advanced cases. Secrets come from the environment or from files, never
+from the TOML file: Waitarr refuses a `password`, `api_key` or `token`
+written there.
 
 The file is found at `--config`, else `$WAITARR_CONFIG`, else
 `./waitarr.toml`. The image sets `WAITARR_CONFIG=/config/waitarr.toml`.
@@ -16,6 +20,20 @@ the default**. A variable set to an empty value counts as absent, so the
 example Compose file's `WAITARR_MODE=${WAITARR_MODE:-}` leaves
 `waitarr.toml` in charge while `.env` does not set it. Secrets follow the
 same rule: an empty `WAITARR_<NAME>_PASSWORD` falls back to its `_FILE`.
+
+## 🐳 Compose-only setup
+
+| Variable | Meaning |
+| --- | --- |
+| `WAITARR_JELLYFIN_URL` | Base URL of Jellyfin. Defines the source named `jellyfin` (its key is `WAITARR_JELLYFIN_API_KEY`). |
+| `WAITARR_QBIT_INSTANCES` | Names of the qBittorrent instances, separated by commas or spaces (`main,seedbox`). The list replaces any `[[targets]]` in the file; an entry of the same name in the file supplies the keys the variables do not. |
+| `WAITARR_<NAME>_URL` | WebUI base URL of that instance. |
+| `WAITARR_<NAME>_USERNAME` | WebUI user (default `admin` for an instance defined by variables). |
+| `WAITARR_<NAME>_PASSWORD` | WebUI password (or `_FILE`). |
+| `WAITARR_<NAME>_THROTTLE_DOWNLOAD` / `_UPLOAD` | Per-instance limits, both or neither. |
+
+When both `WAITARR_JELLYFIN_URL` and `WAITARR_QBIT_INSTANCES` are set, the
+file may be absent. With a file, a variable overrides the matching key.
 
 ## 🗂️ Top level
 

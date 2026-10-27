@@ -407,3 +407,72 @@ def test_an_empty_secret_variable_falls_back_to_its_file(tmp_path):
         },
     )
     assert config.targets[0].password == "UNMISTAKABLE-FROM-FILE"
+
+
+COMPOSE_ONLY = {
+    "WAITARR_JELLYFIN_URL": "http://jellyfin:8096",
+    "WAITARR_QBIT_INSTANCES": "main, second",
+    "WAITARR_MAIN_URL": "http://qbit:8080",
+    "WAITARR_SECOND_URL": "http://qbit2:8080",
+    "WAITARR_SECOND_USERNAME": "bob",
+    "WAITARR_SECOND_PASSWORD": "UNMISTAKABLE-2",
+}
+
+
+def test_compose_variables_alone_define_every_service(tmp_path):
+    config = load_config(tmp_path / "absent.toml", {**SECRETS, **COMPOSE_ONLY})
+    assert [s.url for s in config.sources] == ["http://jellyfin:8096"]
+    assert [(t.name, t.url, t.username) for t in config.targets] == [
+        ("main", "http://qbit:8080", "admin"),
+        ("second", "http://qbit2:8080", "bob"),
+    ]
+
+
+def test_a_missing_file_still_fails_without_the_variables(tmp_path):
+    with pytest.raises(ConfigError):
+        load_config(tmp_path / "absent.toml", SECRETS)
+
+
+def test_the_instance_list_replaces_the_files_targets_and_keeps_their_keys(
+    tmp_path,
+):
+    config = load(
+        tmp_path,
+        MINIMAL.replace('username = "admin"', 'username = "root"'),
+        {**COMPOSE_ONLY, "WAITARR_JELLYFIN_URL": "http://other:8096"},
+    )
+    assert config.sources[0].url == "http://other:8096"
+    assert [(t.name, t.username) for t in config.targets] == [
+        ("main", "root"),
+        ("second", "bob"),
+    ]
+    assert config.targets[0].url == "http://qbit:8080"
+
+
+def test_blank_compose_variables_count_as_absent(tmp_path):
+    config = load(
+        tmp_path,
+        environ={"WAITARR_JELLYFIN_URL": " ", "WAITARR_QBIT_INSTANCES": ""},
+    )
+    assert [t.name for t in config.targets] == ["main"]
+    assert config.sources[0].url == "http://jellyfin:8096"
+
+
+def test_per_instance_throttle_comes_from_variables(tmp_path):
+    config = load(
+        tmp_path,
+        environ={
+            **COMPOSE_ONLY,
+            "WAITARR_SECOND_THROTTLE_DOWNLOAD": "2KiB",
+            "WAITARR_SECOND_THROTTLE_UPLOAD": "4KiB",
+        },
+    )
+    assert config.targets[0].throttle is None
+    assert config.targets[1].throttle == Limits(2048, 4096)
+
+
+def test_an_invalid_instance_name_is_reported(tmp_path):
+    found = problems(
+        tmp_path, environ={**COMPOSE_ONLY, "WAITARR_QBIT_INSTANCES": "Bad Name"}
+    )
+    assert mentions(found, "WAITARR_QBIT_INSTANCES", "Bad")
