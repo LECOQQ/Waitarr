@@ -1,5 +1,5 @@
-# Waitarr -- example Compose file. Fill in the values marked CHANGE-ME,
-# or keep the secrets in a `.env` next to this file (see .env.example).
+# Waitarr -- example Compose file. Set the URLs below, and the secrets in
+# a `.env` next to this file (copied from .env.example).
 services:
   waitarr:
     image: ghcr.io/lecoqq/waitarr:0.0.0 # x-release-please-version

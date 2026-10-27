@@ -56,7 +56,7 @@ startup).
 
 ## 🚀 Install with Compose
 
-Copy this into a `docker-compose.yml`, change the four values, start it:
+Copy this into a `docker-compose.yml` and set the two URLs:
 
 ```yaml
 services:
@@ -67,10 +67,10 @@ services:
       TZ: Europe/Paris
       WAITARR_MODE: observe # log only; "active" throttles
       WAITARR_JELLYFIN_URL: http://jellyfin:8096
-      WAITARR_JELLYFIN_API_KEY: CHANGE-ME # Jellyfin: Dashboard > API Keys
+      WAITARR_JELLYFIN_API_KEY: ${WAITARR_JELLYFIN_API_KEY}
       WAITARR_QBIT_INSTANCES: main # several: main,seedbox
       WAITARR_MAIN_URL: http://qbittorrent:8080
-      WAITARR_MAIN_PASSWORD: CHANGE-ME # qBittorrent WebUI password
+      WAITARR_MAIN_PASSWORD: ${WAITARR_MAIN_PASSWORD}
     volumes:
       - waitarr-data:/data
     ports:
@@ -79,6 +79,13 @@ services:
 
 volumes:
   waitarr-data:
+```
+
+Put the two secrets in a `.env` next to it (`chmod 600 .env`):
+
+```bash
+WAITARR_JELLYFIN_API_KEY=   # Jellyfin: Dashboard > API Keys
+WAITARR_MAIN_PASSWORD=      # qBittorrent WebUI password
 ```
 
 ```bash
@@ -91,9 +98,8 @@ Play something: the log says `would throttle`. Happy with what you read?
 Set `WAITARR_MODE: active` and run `docker compose up -d` again.
 
 Each extra qBittorrent is a name in `WAITARR_QBIT_INSTANCES` with its own
-`WAITARR_<NAME>_URL` and `WAITARR_<NAME>_PASSWORD`. Keep the secrets out
-of the file with a `.env` ([.env.example](.env.example)); the repository's
-[docker-compose.yml](docker-compose.yml) is set up that way.
+`WAITARR_<NAME>_URL` and `WAITARR_<NAME>_PASSWORD`. A fuller example:
+[docker-compose.yml](docker-compose.yml) and [.env.example](.env.example).
 
 Image: amd64 and arm64. Prefer Python? See
 [docs/PYTHON.md](docs/PYTHON.md).
