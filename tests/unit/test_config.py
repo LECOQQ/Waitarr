@@ -22,8 +22,8 @@ username = "admin"
 """
 
 SECRETS = {
-    "WAITARR_JELLYFIN_API_KEY": "jf-key",
-    "WAITARR_MAIN_PASSWORD": "qb-pass",
+    "WAITARR_JELLYFIN_API_KEY": "UNMISTAKABLE-JF-KEY",
+    "WAITARR_MAIN_PASSWORD": "UNMISTAKABLE-QB-PASS",
 }
 
 
@@ -58,8 +58,8 @@ def test_minimal_file_loads_with_safe_defaults(tmp_path):
 
 def test_secrets_come_from_the_environment(tmp_path):
     config = load(tmp_path)
-    assert config.sources[0].api_key == "jf-key"
-    assert config.targets[0].password == "qb-pass"
+    assert config.sources[0].api_key == "UNMISTAKABLE-JF-KEY"
+    assert config.targets[0].password == "UNMISTAKABLE-QB-PASS"
 
 
 def test_secrets_can_come_from_a_file_named_by_the_environment(tmp_path):
@@ -71,7 +71,7 @@ def test_secrets_can_come_from_a_file_named_by_the_environment(tmp_path):
         path,
         {
             "WAITARR_JELLYFIN_API_KEY_FILE": str(key),
-            "WAITARR_MAIN_PASSWORD": "qb-pass",
+            "WAITARR_MAIN_PASSWORD": "UNMISTAKABLE-QB-PASS",
         },
     )
     assert config.sources[0].api_key == "from-file"
@@ -95,7 +95,7 @@ def test_the_environment_wins_over_a_secrets_file(tmp_path):
         'username = "admin"',
         f'username = "admin"\npassword_file = "{secret}"',
     )
-    assert load(tmp_path, text).targets[0].password == "qb-pass"
+    assert load(tmp_path, text).targets[0].password == "UNMISTAKABLE-QB-PASS"
 
 
 def test_an_unreadable_secrets_file_is_reported(tmp_path):
@@ -336,8 +336,8 @@ def test_the_example_file_does_not_load_without_its_secrets():
 def test_secrets_stay_out_of_the_repr(tmp_path):
     config = load(tmp_path)
     shown = repr(config)
-    assert "jf-key" not in shown
-    assert "qb-pass" not in shown
+    assert "UNMISTAKABLE-JF-KEY" not in shown
+    assert "UNMISTAKABLE-QB-PASS" not in shown
 
 
 def test_credentials_in_a_url_are_refused_without_being_echoed(tmp_path):

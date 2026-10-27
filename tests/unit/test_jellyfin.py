@@ -7,7 +7,7 @@ from tests.fake_jellyfin import FakeJellyfin, session
 from waitarr.adapters.jellyfin import JellyfinSource
 from waitarr.core.ports import ServiceUnavailable
 
-KEY = "super-secret-key-123"
+KEY = "UNMISTAKABLE-JELLYFIN-KEY"
 
 
 @pytest.fixture
@@ -92,8 +92,8 @@ def test_the_api_key_is_sent_as_a_media_browser_token(jellyfin):
 
 def test_a_refused_key_is_service_unavailable_and_never_echoed(jellyfin):
     with pytest.raises(ServiceUnavailable) as caught:
-        source(jellyfin, key="wrong-key-456").playbacks()
-    assert "wrong-key-456" not in str(caught.value)
+        source(jellyfin, key="UNMISTAKABLE-WRONG-KEY").playbacks()
+    assert "UNMISTAKABLE-WRONG-KEY" not in str(caught.value)
     assert KEY not in str(caught.value)
     assert "401" in str(caught.value)
 

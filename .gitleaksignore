@@ -1,0 +1,4 @@
+# Each line silences one exact finding: commit, file, rule, line.
+# A fake key ("wrong-key-456") in a test, already pushed; the working
+# tree now uses the UNMISTAKABLE- convention. Not a credential.
+a65e3575113f230e8e4909a2066a85f0375db31d:tests/unit/test_jellyfin.py:generic-api-key:95
