@@ -65,7 +65,6 @@ services:
     restart: unless-stopped
     environment:
       TZ: Europe/Paris
-      WAITARR_MODE: observe # log only; "active" throttles
       WAITARR_JELLYFIN_URL: http://jellyfin:8096
       WAITARR_JELLYFIN_API_KEY: ${WAITARR_JELLYFIN_API_KEY}
       WAITARR_QBIT_INSTANCES: main # several: main,seedbox
@@ -94,8 +93,8 @@ docker compose exec waitarr waitarr check
 docker compose logs -f waitarr
 ```
 
-Play something: the log says `would throttle`. Happy with what you read?
-Set `WAITARR_MODE: active` and run `docker compose up -d` again.
+Play something: the turtle turns on. Want to see first? Add
+`WAITARR_MODE: observe` and it only logs what it would do.
 
 Each extra qBittorrent is a name in `WAITARR_QBIT_INSTANCES` with its own
 `WAITARR_<NAME>_URL` and `WAITARR_<NAME>_PASSWORD`. A fuller example:

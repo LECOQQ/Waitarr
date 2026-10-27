@@ -7,8 +7,8 @@ services:
     restart: unless-stopped
     environment:
       TZ: ${TZ:-Etc/UTC}
-      # "observe" only logs what Waitarr would do; "active" throttles.
-      WAITARR_MODE: ${WAITARR_MODE:-observe}
+      # Empty: active. "observe" only logs what Waitarr would do.
+      WAITARR_MODE: ${WAITARR_MODE:-}
       # Jellyfin: Dashboard > API Keys > +
       WAITARR_JELLYFIN_URL: http://jellyfin:8096
       WAITARR_JELLYFIN_API_KEY: ${WAITARR_JELLYFIN_API_KEY:?set it in .env}
