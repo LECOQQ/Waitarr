@@ -27,7 +27,7 @@ export FONTCONFIG_FILE="$work/fonts.conf"
 # Anthracite, like the *arr interfaces; the accent is the logo's play blue.
 bg_top='#26292e'
 bg_bottom='#181a1e'
-accent='#2490fc'
+accent='#0961dc'
 text='#eef0f2'
 muted='#a3abb5'
 

@@ -1,7 +1,7 @@
 # 🐢 Waitarr
 
 <p align="center">
-  <img src="docs/assets/waitarr-logo.png" alt="Waitarr logo: a turtle with popcorn in front of a play button" width="200">
+  <img src="docs/assets/waitarr-logo.png" alt="Waitarr logo: a cartoon turtle in a cinema armchair with popcorn, in front of a play button" width="200">
 </p>
 
 <p align="center">
