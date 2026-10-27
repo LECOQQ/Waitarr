@@ -1,6 +1,6 @@
 # The container runs exactly the `waitarr` CLI the Python package
-# installs. Two stages: Git and the build tooling never reach the runtime
-# image, which receives a ready virtualenv at the same path.
+# installs. Two stages: Poetry and the build tooling never reach the
+# runtime image, which receives a ready virtualenv at the same path.
 #
 # Renovate keeps the digest current; the tag says what it is. The Python
 # version moves with the integration and publish jobs (renovate.json).
@@ -10,11 +10,6 @@ FROM ${PYTHON_IMAGE} AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
-
-# Git: qbit-ops is a Git dependency until its next release.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
-    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 COPY pyproject.toml poetry.lock README.md LICENSE ./

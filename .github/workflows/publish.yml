@@ -1,9 +1,8 @@
 name: Publish to PyPI
 
-# Prepared, not wired: PyPI refuses a package whose dependencies point at
-# a Git URL, and qbit-ops is one until its next release. Once Waitarr
-# depends on a released qbit-ops, release-please.yml dispatches this the
-# way it dispatches publish-container.yml.
+# Ready, not wired: publishing to PyPI is the maintainer's decision. Once the
+# Trusted Publisher is configured on PyPI (VERIFICATION.md), dispatch it
+# by hand, or from release-please.yml the way publish-container.yml is.
 on:
   workflow_dispatch:
     inputs:

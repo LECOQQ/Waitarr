@@ -31,7 +31,7 @@ python = "^3.12"
 requests = "^2.32"
 typer = ">=0.12,<1"
 packaging = ">=24"
-qbit-ops = {git = "https://github.com/LECOQQ/qbit-ops.git", rev = "92e54547b4ee8566bf91e1c55637f380c76bb03f"}
+qbit-ops = ">=0.7,<0.8"
 
 [tool.poetry.scripts]
 waitarr = "waitarr.cli:main"

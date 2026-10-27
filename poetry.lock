@@ -1794,29 +1794,25 @@ files = [
 
 [[package]]
 name = "qbit-ops"
-version = "0.6.0"
+version = "0.7.0"
 description = "Bulk torrent and tracker operations for qBittorrent, from a CLI or a TUI, showing exactly what a change will touch before it touches anything."
 optional = false
-python-versions = "^3.12"
-files = []
-develop = false
+python-versions = "<4.0,>=3.12"
+files = [
+    {file = "qbit_ops-0.7.0-py3-none-any.whl", hash = "sha256:dcb3f3b102e63bd58ce8a011cb80e6c73779e292c1add7c550cd6cc53bdbaebb"},
+    {file = "qbit_ops-0.7.0.tar.gz", hash = "sha256:392609918b840df0c71eeb05bb33963ebd17d2c2ff856c786ee6953b134e752e"},
+]
 
 [package.dependencies]
 packaging = "*"
 python-dotenv = "*"
 qbittorrent-api = "*"
-rich = "^15.0.0"
+rich = ">=15.0.0,<16.0.0"
 typer = "*"
 
 [package.extras]
 mcp = ["mcp (>=1.0)"]
 tui = ["textual (>=8.2.8)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/LECOQQ/qbit-ops.git"
-reference = "92e54547b4ee8566bf91e1c55637f380c76bb03f"
-resolved_reference = "92e54547b4ee8566bf91e1c55637f380c76bb03f"
 
 [[package]]
 name = "qbittorrent-api"
@@ -2350,4 +2346,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "2b8c3d83e09241896aeae869ea508d921198f8d4500c2233d26454760161df17"
+content-hash = "cd9d7b29cbaae580883fcb472bc55b94de4b2ea6f1b5c4f43e9c3acc4292b84e"
