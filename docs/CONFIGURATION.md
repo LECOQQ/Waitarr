@@ -21,7 +21,7 @@ same rule: an empty `WAITARR_<NAME>_PASSWORD` falls back to its `_FILE`.
 
 | Key | Default | Variable | Meaning |
 | --- | --- | --- | --- |
-| `mode` | `"observe"` | `WAITARR_MODE` | `observe` logs decisions and writes nothing; `active` throttles. |
+| `mode` | `"active"` | `WAITARR_MODE` | `active` throttles during playback; `observe` logs what it would do and writes nothing. |
 | `poll_interval` | `"15s"` | `WAITARR_POLL_INTERVAL` | How often sources and targets are read. At least `1s`. |
 | `state_file` | `"waitarr-state.json"` | `WAITARR_STATE_FILE` | What Waitarr owns, for restoration after a restart. Relative to the working directory (`/data` in the image). |
 | `restore_on_exit` | `true` | | Give everything back on SIGTERM or Ctrl-C. |

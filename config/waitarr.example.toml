@@ -9,9 +9,10 @@
 # where <NAME> is the entry's `name` in upper case, `-` becoming `_`.
 # docs/CONFIGURATION.md lists every key and environment variable.
 
-# "observe" logs every decision and writes nothing, anywhere. Start
-# there; switch to "active" once the log says what you expect.
-mode = "observe"
+# "active" (the default) throttles during playback. Want to see first?
+# "observe" logs what it would do and touches nothing. WAITARR_MODE, when
+# set and not empty, wins over this line.
+mode = "active"
 
 # How often Jellyfin and qBittorrent are read.
 poll_interval = "15s"

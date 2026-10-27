@@ -36,12 +36,12 @@ it while Waitarr holds it, Waitarr steps aside until the playback is
 over. It only ever undoes its own change, and it remembers what that
 change was, across crashes and restarts.
 
-## 🔭 Observe before acting
+## 🔭 Observe when you want
 
-A tool that writes to your torrent client should first show you what it
-would do. Waitarr starts in observation mode, and in that mode it cannot
-write: not "does not", cannot. Switching to active mode is a decision you
-make after reading the log.
+A tool that writes to your torrent client should be able to show you what
+it would do. In observation mode, Waitarr cannot write: not "does not",
+cannot. It is one setting away, for whoever wants to read the log before
+letting it act.
 
 ## 🧯 When in doubt, do nothing
 

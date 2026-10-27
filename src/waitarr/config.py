@@ -439,8 +439,8 @@ def parse_config(
     def setting(key: str, variable: str, default: Any) -> Any:
         return environ.get(variable) or data.get(key, default)
 
-    mode_raw = setting("mode", "WAITARR_MODE", Mode.OBSERVE.value)
-    mode = reader.convert("mode", mode_raw, Mode, Mode.OBSERVE)
+    mode_raw = setting("mode", "WAITARR_MODE", Mode.ACTIVE.value)
+    mode = reader.convert("mode", mode_raw, Mode, Mode.ACTIVE)
     poll = reader.convert(
         "poll_interval",
         setting("poll_interval", "WAITARR_POLL_INTERVAL", "15s"),

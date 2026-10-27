@@ -39,8 +39,8 @@ each tracker counts a torrent at a crawl has not been measured yet.
 
 ## 🛡️ You stay in charge
 
-- 🔭 **Observation first**: it starts by logging what it *would* do, and
-  writes nothing until you switch it to active.
+- 🔭 **See first if you like**: in observation mode it logs what it
+  *would* do and touches nothing.
 - ↩️ **It only gives back what it took**: the speed limits it found,
   exactly.
 - ✋ **Your settings win**: turn the turtle on or off by hand and Waitarr
@@ -68,7 +68,7 @@ chmod 600 .env
    and the qBittorrent `username`.
 2. In `.env`, set `WAITARR_JELLYFIN_API_KEY` (Jellyfin: *Dashboard > API
    Keys*) and `WAITARR_MAIN_PASSWORD` (the qBittorrent WebUI password).
-3. Start it and watch what it would do:
+3. Start it:
 
 ```bash
 docker compose up -d
@@ -76,8 +76,8 @@ docker compose exec waitarr waitarr check
 docker compose logs -f waitarr
 ```
 
-Play something: the log says `would throttle`. Happy with what you read?
-Set `mode = "active"` and restart.
+Want to see first? Set `mode = "observe"` in `waitarr.toml`: it logs what
+it would do and touches nothing.
 
 Image: `ghcr.io/lecoqq/waitarr:0.0.0` <!-- x-release-please-version -->, amd64 and arm64.
 Prefer Python? `uv tool install waitarr` or `pipx install waitarr`, then

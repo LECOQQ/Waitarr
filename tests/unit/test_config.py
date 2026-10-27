@@ -48,7 +48,7 @@ def mentions(found, *needles):
 
 def test_minimal_file_loads_with_safe_defaults(tmp_path):
     config = load(tmp_path)
-    assert config.mode is Mode.OBSERVE
+    assert config.mode is Mode.ACTIVE
     assert config.poll_interval == timedelta(seconds=15)
     assert config.policy.release_after == timedelta(minutes=3)
     assert config.restore_on_exit is True
@@ -322,7 +322,7 @@ def test_the_config_path_can_come_from_the_environment(tmp_path):
 
 def test_the_example_file_loads_with_secrets_from_the_environment():
     config = load_config(EXAMPLE, SECRETS)
-    assert config.mode is Mode.OBSERVE
+    assert config.mode is Mode.ACTIVE
     assert [s.name for s in config.sources] == ["jellyfin"]
     assert [t.name for t in config.targets] == ["main"]
     assert config.targets[0].throttle == Limits(1024, 1024)
@@ -354,6 +354,22 @@ def test_credentials_in_a_url_are_refused_without_being_echoed(tmp_path):
 def test_a_non_finite_duration_is_a_configuration_error(tmp_path, value):
     found = problems(tmp_path, f"poll_interval = {value}\n" + MINIMAL)
     assert mentions(found, "poll_interval")
+
+
+@pytest.mark.parametrize(
+    ("file_line", "variable", "expected"),
+    [
+        ("", None, Mode.ACTIVE),  # default
+        ('mode = "observe"\n', None, Mode.OBSERVE),  # file beats default
+        ('mode = "observe"\n', "active", Mode.ACTIVE),  # variable beats file
+        ("", "observe", Mode.OBSERVE),  # variable beats default
+    ],
+)
+def test_mode_comes_from_variable_then_file_then_default(
+    tmp_path, file_line, variable, expected
+):
+    environ = {"WAITARR_MODE": variable} if variable else {}
+    assert load(tmp_path, file_line + MINIMAL, environ).mode is expected
 
 
 def test_empty_variables_count_as_absent(tmp_path):
