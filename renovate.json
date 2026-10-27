@@ -7,17 +7,48 @@
   "packageRules": [
     {
       "description": "Waitarr ships as an image and a package: a runtime dependency change is a fix, so release-please ships it",
-      "matchDepTypes": ["dependencies"],
+      "matchDepTypes": [
+        "dependencies"
+      ],
       "semanticCommitType": "fix"
     },
     {
       "description": "qbit-ops is pinned to a Git revision of an unreleased branch; moved by hand until it is released",
-      "matchDepNames": ["qbit-ops"],
+      "matchDepNames": [
+        "qbit-ops"
+      ],
       "enabled": false
     },
     {
       "description": "The compatibility matrix decides which qBittorrent versions are tested; the test image follows it by hand",
-      "matchDepNames": ["linuxserver/qbittorrent"],
+      "matchDepNames": [
+        "linuxserver/qbittorrent"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "One Python for the image, the integration job and the publish job: a version or digest update moves all three in one PR. The check matrix (3.12 to 3.15) is not read by Renovate and moves by hand.",
+      "matchDepNames": [
+        "python"
+      ],
+      "matchManagers": [
+        "dockerfile",
+        "github-actions"
+      ],
+      "groupName": "Python runtime",
+      "groupSlug": "python-runtime",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "automerge": false
+    },
+    {
+      "description": "pyproject.toml keeps python = \"^3.12\": the lowest supported version, not the one shipped",
+      "matchDepNames": [
+        "python"
+      ],
+      "matchManagers": [
+        "poetry"
+      ],
       "enabled": false
     }
   ]

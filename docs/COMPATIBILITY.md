@@ -12,7 +12,7 @@ assumed broken, only unverified.
 | qBittorrent | 5.1.0 | 5.1.0 (Web API 2.11.4) | Read-only, against two real instances (production, observation mode) |
 | qBittorrent | 5.1.0 | 5.1.4 (Web API 2.11.4) | Read and write, `make test-docker` (default image), disposable `linuxserver/qbittorrent` container, amd64 |
 | qBittorrent | 5.1.0 | 5.1.0 (Web API 2.11.4) | Read and write, `make test-docker` with the 5.1.0 image below, amd64 |
-| Python | 3.12 | 3.12, 3.13, 3.14, 3.15 | CI (`make ci`); the image ships 3.12 |
+| Python | 3.12 | 3.12, 3.13, 3.14, 3.15 | CI (`make ci`); the image, the integration job and the publish job use 3.15 |
 | Image | | amd64, arm64 | CI builds both; runtime tested on amd64 |
 
 - **Tested** means exercised for real, at that exact version.

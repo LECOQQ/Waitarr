@@ -2,8 +2,9 @@
 # installs. Two stages: Git and the build tooling never reach the runtime
 # image, which receives a ready virtualenv at the same path.
 #
-# Renovate keeps the digest current; the tag says what it is.
-ARG PYTHON_IMAGE=python:3.12-slim@sha256:12316debbfb86890f6b2d825820612741ba527ad5a44e3902759141d572bfe8f
+# Renovate keeps the digest current; the tag says what it is. The Python
+# version moves with the integration and publish jobs (renovate.json).
+ARG PYTHON_IMAGE=python:3.15-slim@sha256:f786b2e19cf9bb54e96bfcd4c1b40c4c56336c22e60607ffd4b080ae5b5dee83
 
 FROM ${PYTHON_IMAGE} AS builder
 
@@ -60,7 +61,7 @@ ENV PATH=/opt/waitarr/bin:$PATH
 # Nothing installs at runtime: pip, and the copy ensurepip bundles, are
 # only attack surface (`make vulns` flags their known vulnerabilities).
 RUN /usr/local/bin/python -m pip uninstall --yes pip \
-    && rm -rf /usr/local/lib/python3.12/ensurepip/_bundled
+    && rm -rf /usr/local/lib/python3.*/ensurepip/_bundled
 
 # Non-root. /data holds the state file and must survive the container.
 RUN groupadd --gid 1000 waitarr \
