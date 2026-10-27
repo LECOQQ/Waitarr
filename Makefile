@@ -15,7 +15,7 @@ PLATFORMS ?= linux/amd64,linux/arm64
 
 .PHONY: help doctor info install hooks-install sync run format lint test \
 	test-docker check check-fast check-version check-docs check-ai secrets \
-	deps-audit vulns build check-dist check-image image image-multiarch ci \
+	deps-audit vulns social-preview build check-dist check-image image image-multiarch ci \
 	ci-entrypoint clean
 
 .sync-stamp: pyproject.toml poetry.lock
@@ -160,6 +160,9 @@ build: sync ## dev: Build the wheel and sdist into dist/
 check-dist: build ## qa: Validate the built artefacts and smoke-test the installed entrypoint (needs network)
 	@$(PY) twine check --strict dist/*
 	@$(PY) pytest -m network tests/test_distribution.py
+
+social-preview: ## dev: Render docs/assets/social-preview.png from the logo (needs ImageMagick with Pango)
+	@bash scripts/render_social_preview.sh
 
 image: ## use: Build the container image for this machine ($(IMAGE))
 	@docker build \
