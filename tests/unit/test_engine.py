@@ -163,7 +163,29 @@ def test_a_crash_mid_write_is_undone_at_the_next_start():
     second = World(store=store, targets=[target])
     assert second.engine.restore_all()
     assert target.state == UNTHROTTLED
-    assert target.writes == [UNTHROTTLED]
+    assert target.writes == []
+    assert second.engine.status().targets["main"].ownership is Ownership.IDLE
+
+
+def test_limits_a_human_left_after_switching_off_are_given_back():
+    w = World()
+    w.source.sessions = [playback()]
+    w.tick()
+    w.target.state = TargetState(False, THROTTLE)  # turtle clicked off
+    w.tick()
+    w.source.sessions = []
+    w.tick(600)
+    assert w.target.state == UNTHROTTLED
+    assert w.target.writes == [HELD, UNTHROTTLED]
+
+
+def test_a_state_file_owning_an_unconfigured_target_refuses_to_start():
+    store = MemoryStore()
+    first = World(store=store, targets=[FakeTarget("main")])
+    first.source.sessions = [playback()]
+    first.tick()
+    with pytest.raises(StateDocumentError, match="main"):
+        World(store=store, targets=[FakeTarget("primary")])
 
 
 def test_unreachable_source_changes_nothing_and_notifies_once():

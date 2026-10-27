@@ -75,6 +75,7 @@ def encode_state(document: StateDocument) -> dict[str, object]:
             "before": _encode_target_state(record.before),
             "applied": _encode_target_state(record.applied),
             "pending": _encode_target_state(record.pending),
+            "pending_from": _encode_target_state(record.pending_from),
             "last_activity_at": last.isoformat() if last else None,
         }
     return {"schema_version": SCHEMA_VERSION, "targets": targets}
@@ -106,6 +107,7 @@ def decode_state(raw: Mapping[str, object]) -> StateDocument:
             before=_decode_target_state(entry.get("before")),
             applied=_decode_target_state(entry.get("applied")),
             pending=_decode_target_state(entry.get("pending")),
+            pending_from=_decode_target_state(entry.get("pending_from")),
         )
         if ownership is Ownership.ENGAGED and (
             record.before is None or record.applied is None

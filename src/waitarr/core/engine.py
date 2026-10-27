@@ -37,7 +37,12 @@ from waitarr.core.reconcile import (
     reconcile,
     restore,
 )
-from waitarr.core.records import StateDocument, decode_state, encode_state
+from waitarr.core.records import (
+    StateDocument,
+    StateDocumentError,
+    decode_state,
+    encode_state,
+)
 from waitarr.core.units import format_rate
 
 __all__ = [
@@ -182,6 +187,15 @@ class Engine:
             for name, record in document.records.items()
             if record.ownership is not Ownership.IDLE or record.pending
         )
+        configured = {b.target.name for b in self._targets}
+        orphans = [name for name in owned if name not in configured]
+        if orphans and not self._simulate:
+            raise StateDocumentError(
+                f"the state file says Waitarr still owns {', '.join(orphans)}, "
+                "which the configuration no longer declares. Restore it "
+                "first with the previous configuration (`waitarr restore "
+                "--yes`), or put the target back under its old name."
+            )
         if self._simulate:
             if owned:
                 logger.warning(
@@ -541,6 +555,14 @@ class Engine:
                 "left alone until playback stops.",
                 name,
                 _describe_state(observed),
+            )
+        elif action is Action.RESUME and step.write is not None:
+            logger.info(
+                "%s: playback has stopped; %sput back the alternative limits "
+                "found before (%s), the switch stays as a human set it.",
+                name,
+                would,
+                _describe_limits(step.write.limits),
             )
         elif action is Action.RESUME:
             logger.info(

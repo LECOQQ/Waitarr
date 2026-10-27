@@ -3,6 +3,7 @@ durations and transfer rates."""
 
 from __future__ import annotations
 
+import math
 import re
 from datetime import timedelta
 
@@ -36,6 +37,8 @@ def parse_duration(value: str | int | float) -> timedelta:
     if isinstance(value, bool):
         raise ValueError(f"not a duration: {value!r}")
     if isinstance(value, int | float):
+        if not math.isfinite(value):
+            raise ValueError(f"a duration must be finite: {value!r}")
         if value < 0:
             raise ValueError(f"a duration cannot be negative: {value!r}")
         return timedelta(seconds=value)

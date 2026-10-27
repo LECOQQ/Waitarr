@@ -17,6 +17,7 @@ from datetime import timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from waitarr.core.model import Limits
 from waitarr.core.policy import PlaybackFilter
@@ -234,6 +235,14 @@ def _limits(
 def _url(reader: _Reader, where: str, raw: Any) -> str:
     if not isinstance(raw, str) or not re.match(r"^https?://\S+$", raw):
         reader.fail(f"{where}.url: an http:// or https:// URL is required")
+        return ""
+    parts = urlsplit(raw)
+    if parts.username or parts.password:
+        # Never echo the URL: it holds the credential being refused.
+        reader.fail(
+            f"{where}.url: must not carry credentials (user:password@); "
+            "use 'username' and the password variable instead"
+        )
         return ""
     return raw.rstrip("/")
 

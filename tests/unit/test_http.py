@@ -233,3 +233,24 @@ def test_get_on_the_webhook_path_is_404(make_rig):
         ).status_code
         == 404
     )
+
+
+def test_a_webhook_flood_wakes_the_loop_once(make_rig):
+    rig = make_rig(webhook=True, token=None)
+    for _ in range(5):
+        assert (
+            requests.post(rig.base + "/hooks/jellyfin", timeout=3).status_code
+            == 202
+        )
+    assert rig.woken == 1
+
+
+def test_the_webhook_token_never_reaches_the_log(make_rig, caplog):
+    caplog.set_level("DEBUG", logger="waitarr")
+    rig = make_rig(webhook=True, token="UNMISTAKABLE-TOKEN")
+    requests.post(
+        rig.base + "/hooks/jellyfin?token=UNMISTAKABLE-TOKEN", timeout=3
+    )
+    requests.post(rig.base + "/hooks/jellyfin?token=UNMISTAKABLE-X", timeout=3)
+    assert caplog.records
+    assert not any("UNMISTAKABLE" in r.getMessage() for r in caplog.records)

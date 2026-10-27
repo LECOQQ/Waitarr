@@ -20,10 +20,20 @@ Each target has a persisted record with an ownership state:
   asks for a throttle any more; it then forgets, and the next playback
   starts from a clean slate.
 
-A write is recorded as `pending` *before* it is sent and cleared only
-once read back. A pending write is retried, idempotently, until
-observed. At shutdown, an engage that may not have landed is undone,
-never retried.
+If the human switched the throttle off and left Waitarr's limits in
+place, those limits are put back as found when the playback ends; the
+switch stays as the human set it.
+
+A write is recorded as `pending`, with the state it was decided from,
+*before* it is sent, and cleared only once read back. It is retried only
+while the target is still in that state or half-way (limits written,
+switch not yet); any other state is a human's, and Waitarr yields. An
+engage that may not have landed and that no playback needs any more is
+undone, never finished, at shutdown as during a run.
+
+A state file that owns a target the configuration no longer declares
+stops the start, with the way out: restoring a target nobody watches is
+impossible, and forgetting it would leave it throttled.
 
 Reconciliation is a pure function (`waitarr.core.reconcile`); the
 engine does the I/O around it.

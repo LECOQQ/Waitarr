@@ -10,7 +10,9 @@ from __future__ import annotations
 import hmac
 import json
 import logging
+import re
 import threading
+import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,6 +27,9 @@ __all__ = ["HttpSurface", "status_document"]
 logger = logging.getLogger("waitarr")
 
 _MAX_BODY = 1024 * 1024
+_QUERY = re.compile(r"\?\S*")
+# A webhook flood costs at most one extra poll per this many seconds.
+_WEBHOOK_MIN_INTERVAL = 5.0
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -140,7 +145,7 @@ class HttpSurface:
                 ):
                     self._reply(401, {"error": "bad or missing token"})
                     return
-                surface._wake()
+                surface._nudge()
                 self._reply(202, {"status": "poll scheduled"})
 
             def _drain(self) -> None:
@@ -156,13 +161,26 @@ class HttpSurface:
                 self.end_headers()
                 self.wfile.write(payload)
 
+            def log_request(
+                self, code: int | str = "-", size: int | str = "-"
+            ) -> None:
+                # Never the query string: it may carry the webhook token.
+                logger.debug(
+                    "http: %s %s %s",
+                    self.command,
+                    urlsplit(self.path).path,
+                    code,
+                )
+
             def log_message(self, format: str, *args: object) -> None:
-                logger.debug("http: " + format, *args)
+                logger.debug("http: %s", _QUERY.sub("?...", format % args))
 
         self._status = status
         self._wake = wake
         self._webhook = webhook_enabled
         self._token = webhook_token
+        self._last_nudge: float | None = None
+        self._nudge_lock = threading.Lock()
         self._server = ThreadingHTTPServer((host, port), Handler)
         self._server.daemon_threads = True
         self._thread = threading.Thread(
@@ -174,6 +192,17 @@ class HttpSurface:
     @property
     def port(self) -> int:
         return self._server.server_address[1]
+
+    def _nudge(self) -> None:
+        now = time.monotonic()
+        with self._nudge_lock:
+            if (
+                self._last_nudge is not None
+                and now - self._last_nudge < _WEBHOOK_MIN_INTERVAL
+            ):
+                return
+            self._last_nudge = now
+        self._wake()
 
     def _authorised(self, header: str | None, query: str | None) -> bool:
         if not self._token:

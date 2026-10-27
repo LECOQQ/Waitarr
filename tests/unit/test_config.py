@@ -338,3 +338,19 @@ def test_secrets_stay_out_of_the_repr(tmp_path):
     shown = repr(config)
     assert "jf-key" not in shown
     assert "qb-pass" not in shown
+
+
+def test_credentials_in_a_url_are_refused_without_being_echoed(tmp_path):
+    text = MINIMAL.replace(
+        'url = "http://qbittorrent:8080"',
+        'url = "http://admin:UNMISTAKABLE-PASS@qbittorrent:8080"',
+    )
+    found = problems(tmp_path, text)
+    assert mentions(found, "credentials")
+    assert not any("UNMISTAKABLE" in p for p in found)
+
+
+@pytest.mark.parametrize("value", ["inf", "nan"])
+def test_a_non_finite_duration_is_a_configuration_error(tmp_path, value):
+    found = problems(tmp_path, f"poll_interval = {value}\n" + MINIMAL)
+    assert mentions(found, "poll_interval")

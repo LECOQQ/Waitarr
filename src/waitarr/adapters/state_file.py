@@ -53,3 +53,10 @@ class JsonStateFile:
         except BaseException:
             Path(temporary).unlink(missing_ok=True)
             raise
+        # The rename itself must survive a power cut, or the old file
+        # (claiming nothing is owned) could come back.
+        directory = os.open(self._path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
