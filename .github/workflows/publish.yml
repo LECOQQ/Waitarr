@@ -1,8 +1,8 @@
 name: Publish to PyPI
 
-# Ready, not wired: publishing to PyPI is the maintainer's decision. Once the
-# Trusted Publisher is configured on PyPI (VERIFICATION.md), dispatch it
-# by hand, or from release-please.yml the way publish-container.yml is.
+# Ready, not wired: publishing to PyPI is the maintainer's decision. Once
+# the Trusted Publisher is configured on PyPI, dispatch it by hand, or
+# from release-please.yml the way publish-container.yml is.
 on:
   workflow_dispatch:
     inputs:
