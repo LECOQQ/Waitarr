@@ -354,3 +354,40 @@ def test_credentials_in_a_url_are_refused_without_being_echoed(tmp_path):
 def test_a_non_finite_duration_is_a_configuration_error(tmp_path, value):
     found = problems(tmp_path, f"poll_interval = {value}\n" + MINIMAL)
     assert mentions(found, "poll_interval")
+
+
+def test_empty_variables_count_as_absent(tmp_path):
+    text = (
+        'mode = "observe"\npoll_interval = "5s"\nlog_level = "DEBUG"\n'
+        '[http]\nlisten = "127.0.0.1:9999"\n' + MINIMAL
+    )
+    config = load(
+        tmp_path,
+        text,
+        {
+            "WAITARR_MODE": "",
+            "WAITARR_POLL_INTERVAL": "  ",
+            "WAITARR_LOG_LEVEL": "",
+            "WAITARR_HTTP_LISTEN": "",
+            "WAITARR_RELEASE_AFTER": "",
+            "WAITARR_THROTTLE_DOWNLOAD": "",
+        },
+    )
+    assert config.mode is Mode.OBSERVE
+    assert config.poll_interval == timedelta(seconds=5)
+    assert config.log_level == "DEBUG"
+    assert (config.http.host, config.http.port) == ("127.0.0.1", 9999)
+    assert config.policy.release_after == timedelta(minutes=3)
+
+
+def test_an_empty_secret_variable_falls_back_to_its_file(tmp_path):
+    secret = tmp_path / "password"
+    secret.write_text("UNMISTAKABLE-FROM-FILE\n", encoding="utf-8")
+    config = load(
+        tmp_path,
+        environ={
+            "WAITARR_MAIN_PASSWORD": "",
+            "WAITARR_MAIN_PASSWORD_FILE": str(secret),
+        },
+    )
+    assert config.targets[0].password == "UNMISTAKABLE-FROM-FILE"

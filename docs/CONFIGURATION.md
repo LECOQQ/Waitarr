@@ -9,6 +9,14 @@ The file is found at `--config`, else `$WAITARR_CONFIG`, else
 `waitarr check` validates it and reads every service once, without
 writing anything.
 
+## 🔀 Precedence
+
+For every key that has a variable: **the variable, then the file, then
+the default**. A variable set to an empty value counts as absent, so a
+Compose file can pass `WAITARR_MODE=${WAITARR_MODE:-}` and leave
+`waitarr.toml` in charge while `.env` does not set it. Secrets follow the
+same rule: an empty `WAITARR_<NAME>_PASSWORD` falls back to its `_FILE`.
+
 ## 🗂️ Top level
 
 | Key | Default | Variable | Meaning |
@@ -54,7 +62,7 @@ Waitarr warns at startup when those are unlimited.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `listen` | `"0.0.0.0:8778"` | Address of `GET /healthz`. `""` disables it (`WAITARR_HTTP_LISTEN`). |
+| `listen` | `"0.0.0.0:8778"` | Address of `GET /healthz` (`WAITARR_HTTP_LISTEN`). `""` in the file disables it; an empty variable is ignored. |
 | `webhook` | `false` | Accept `POST /hooks/jellyfin` to poll at once. |
 
 `/healthz` answers `200` when the last tick is recent and reached every

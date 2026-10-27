@@ -116,6 +116,15 @@ class AppConfig:
     notify: NotifyConfig
 
 
+def present(environ: Mapping[str, str]) -> dict[str, str]:
+    """The environment without empty variables.
+
+    Compose writes `WAITARR_MODE=${WAITARR_MODE:-}` as an empty string
+    when `.env` leaves it unset; it must not override the file.
+    """
+    return {k: v for k, v in environ.items() if v.strip()}
+
+
 def env_name(service: str, field_name: str) -> str:
     """`WAITARR_<SERVICE>_<FIELD>`, e.g. `WAITARR_MAIN_PASSWORD`."""
     return f"WAITARR_{service.upper().replace('-', '_')}_{field_name.upper()}"
@@ -407,6 +416,7 @@ def _listen(reader: _Reader, raw: Any) -> tuple[str, int | None]:
 def parse_config(
     data: Mapping[str, Any], *, path: Path, environ: Mapping[str, str]
 ) -> AppConfig:
+    environ = present(environ)
     reader = _Reader(environ)
     reader.unknown(
         "top level",
@@ -586,7 +596,7 @@ def resolve_config_path(
 def load_config(
     path: Path | None = None, environ: Mapping[str, str] | None = None
 ) -> AppConfig:
-    env = os.environ if environ is None else environ
+    env = present(os.environ if environ is None else environ)
     resolved = resolve_config_path(path, env)
     try:
         data = tomllib.loads(resolved.read_text(encoding="utf-8"))
