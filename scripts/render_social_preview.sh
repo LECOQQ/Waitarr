@@ -30,8 +30,6 @@ bg_bottom='#181a1e'
 accent='#2490fc'
 text='#eef0f2'
 muted='#a3abb5'
-pill_fill='#2c3036'
-pill_line='#3d434b'
 
 text_png() { # file, pango markup
   convert -background none pango:"$2" "$1"
@@ -47,31 +45,11 @@ text_png "$work/slogan.png" \
 text_png "$work/mechanism.png" \
   "<span font='Lato 21' foreground='$muted'>▶ play → 🐢 crawl      ⏹ stop → ⚡ full speed</span>"
 
-pills=("Jellyfin" "qBittorrent" "Docker" "amd64 / arm64")
-row=()
-for i in "${!pills[@]}"; do
-  text_png "$work/label$i.png" \
-    "<span font='Lato Bold 15' foreground='$muted'>${pills[$i]}</span>"
-  read -r w h < <(identify -format '%w %h\n' "$work/label$i.png")
-  pw=$((w + 32))
-  ph=$((h + 14))
-  convert -size "${pw}x${ph}" xc:none -fill "$pill_fill" -stroke "$pill_line" \
-    -strokewidth 1.5 -draw "roundrectangle 1,1 $((pw - 2)),$((ph - 2)) $((ph / 2)),$((ph / 2))" \
-    "$work/label$i.png" -gravity center -composite "$work/pill$i.png"
-  row+=("$work/pill$i.png")
-  if [ "$i" -lt $((${#pills[@]} - 1)) ]; then
-    text_png "$work/sep$i.png" "<span font='Lato 18' foreground='$pill_line'> – </span>"
-    row+=("$work/sep$i.png")
-  fi
-done
-convert -background none "${row[@]}" -gravity center +append "$work/pills.png"
-
 convert "$work/bg.png" \
-  "$work/logo.png" -geometry +70+50 -composite \
-  "$work/name.png" -geometry +620+92 -composite \
-  "$work/slogan.png" -geometry +622+236 -composite \
-  "$work/mechanism.png" -geometry +624+438 -composite \
-  "$work/pills.png" -gravity south -geometry +0+40 -composite \
+  "$work/logo.png" -geometry +70+70 -composite \
+  "$work/name.png" -geometry +620+112 -composite \
+  "$work/slogan.png" -geometry +622+256 -composite \
+  "$work/mechanism.png" -geometry +624+458 -composite \
   -depth 8 -strip -define png:compression-level=9 -define png:compression-strategy=1 \
   "$out"
 printf 'Wrote %s\n' "$out"
