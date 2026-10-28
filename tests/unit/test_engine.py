@@ -13,7 +13,7 @@ from tests.fakes import (
     RecordingNotifier,
     playback,
 )
-from waitarr.core.engine import Engine, TargetBinding
+from waitarr.core.engine import UNREACHABLE_REMINDER, Engine, TargetBinding
 from waitarr.core.model import Limits, TargetState
 from waitarr.core.policy import GlobalHysteresisPolicy
 from waitarr.core.ports import Severity
@@ -205,6 +205,47 @@ def test_unreachable_source_changes_nothing_and_notifies_once():
         Severity.FAILURE,
         Severity.RECOVERY,
     ]
+
+
+def _outage_lines(caplog, name):
+    return [m for m in _messages(caplog) if m.startswith(f"{name}:")]
+
+
+def test_an_outage_over_many_ticks_is_logged_once(caplog):
+    caplog.set_level("INFO", logger="waitarr")
+    w = World()
+    w.source.down = True
+    for _ in range(20):
+        w.tick(15)
+    assert len(_outage_lines(caplog, w.source.name)) == 1
+
+
+def test_a_long_outage_is_reminded_after_the_delay(caplog):
+    caplog.set_level("INFO", logger="waitarr")
+    w = World()
+    w.target.down = True
+    w.tick(15)
+    w.tick(int(UNREACHABLE_REMINDER.total_seconds()) - 60)
+    assert len(_outage_lines(caplog, w.target.name)) == 1
+    w.tick(120)
+    lines = _outage_lines(caplog, w.target.name)
+    assert len(lines) == 2
+    assert "still unreachable" in lines[1]
+    w.tick(15)
+    assert len(_outage_lines(caplog, w.target.name)) == 2
+
+
+def test_recovery_is_logged_once(caplog):
+    caplog.set_level("INFO", logger="waitarr")
+    w = World()
+    w.source.down = True
+    w.tick()
+    w.source.down = False
+    w.tick()
+    w.tick()
+    lines = _outage_lines(caplog, w.source.name)
+    assert len(lines) == 2
+    assert "reachable again" in lines[1]
 
 
 def test_unreachable_target_is_left_alone():

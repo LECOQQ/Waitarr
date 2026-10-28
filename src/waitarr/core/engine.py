@@ -15,7 +15,7 @@ import logging
 import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from waitarr.core.model import (
     Diagnostic,
@@ -60,6 +60,10 @@ __all__ = [
 ]
 
 logger = logging.getLogger("waitarr")
+
+# While a service stays unreachable, its outage is logged once when it starts
+# and then at most once per this interval.
+UNREACHABLE_REMINDER = timedelta(minutes=10)
 
 
 def utc_now() -> datetime:
@@ -115,6 +119,8 @@ class _Tracker:
 
     failures: int = 0
     notified: bool = False
+    down_since: datetime | None = None
+    last_logged_at: datetime | None = None
 
 
 @dataclass
@@ -155,6 +161,7 @@ class Engine:
         self._clock = clock
         self._started_at = clock()
         self._document = StateDocument()
+        self._activity_unknown = False
         self._trackers: dict[str, _Tracker] = {}
         self._lock = threading.Lock()
         self._runtime = _Runtime(
@@ -293,11 +300,14 @@ class Engine:
         now = self._clock()
         playbacks = self._read_playbacks(now)
         if playbacks is None:
-            logger.warning(
-                "Activity unknown this tick: no target is changed until "
-                "every source answers."
-            )
+            if not self._activity_unknown:
+                self._activity_unknown = True
+                logger.warning(
+                    "Activity unknown: no target is changed until every "
+                    "source answers."
+                )
         else:
+            self._activity_unknown = False
             self._log_playback_changes(playbacks)
             names = [b.target.name for b in self._targets]
             result = self._policy.decide(
@@ -414,7 +424,7 @@ class Engine:
         target = binding.target
         observed = self._read_target(target, now)
         if observed is None:
-            logger.warning(
+            logger.debug(
                 "%s: state unknown this tick, leaving it untouched.",
                 target.name,
             )
@@ -493,7 +503,14 @@ class Engine:
                     f"{name} answered again; Waitarr resumes normal work.",
                 )
             )
-            logger.info("%s: reachable again.", name)
+        if tracker.down_since is not None:
+            logger.info(
+                "%s: reachable again after %s.",
+                name,
+                format_duration(now - tracker.down_since),
+            )
+        tracker.down_since = None
+        tracker.last_logged_at = None
         tracker.failures = 0
         tracker.notified = False
         with self._lock:
@@ -506,7 +523,21 @@ class Engine:
     def _service_failed(self, name: str, error: str, now: datetime) -> None:
         tracker = self._trackers.setdefault(name, _Tracker())
         tracker.failures += 1
-        logger.warning("%s: %s", name, error)
+        if tracker.down_since is None:
+            tracker.down_since = now
+            tracker.last_logged_at = now
+            logger.warning("%s: %s", name, error)
+        elif (
+            tracker.last_logged_at is None
+            or now - tracker.last_logged_at >= UNREACHABLE_REMINDER
+        ):
+            tracker.last_logged_at = now
+            logger.warning(
+                "%s: still unreachable after %s (%s).",
+                name,
+                format_duration(now - tracker.down_since),
+                error,
+            )
         if tracker.failures >= self._failure_threshold and not tracker.notified:
             tracker.notified = True
             self._notifier.notify(

@@ -74,8 +74,10 @@ def _setup_logging(level: str) -> None:
         stream=sys.stdout,
         force=True,
     )
-    # Libraries log credentials-free but noisy lines at INFO.
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    # Library retry chatter would repeat every tick while a service is down;
+    # Waitarr reports outages itself, once, through its own logger.
+    for name in ("urllib3", "requests", "qbittorrentapi"):
+        logging.getLogger(name).setLevel(logging.ERROR)
 
 
 def _load(config_path: Path | None) -> AppConfig:
