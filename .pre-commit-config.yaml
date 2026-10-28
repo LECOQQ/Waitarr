@@ -16,3 +16,12 @@ repos:
         entry: python3 scripts/check_commit_body.py --commit-msg-file
         language: system
         stages: [commit-msg]
+      - id: agent-harness-private
+        name: Refuse the private paths and marker of agent-harness
+        entry: >-
+          sh -c 'if command -v agent-harness >/dev/null 2>&1;
+          then exec agent-harness hook pre-commit; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
