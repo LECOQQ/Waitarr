@@ -16,6 +16,20 @@ regex = '''(?i)WAITARR_[A-Z0-9_]*(?:API_KEY|PASSWORD|TOKEN)\s*[=:]\s*["']?([A-Za
 secretGroup = 1
 tags = ["waitarr"]
 
+[[rules]]
+# Private files of agent-harness never belong in this repository.
+id = "agent-harness-private-marker"
+description = "Private file of agent-harness committed to a product"
+regex = '''agent-harness[:]private'''
+keywords = ["agent-harness"]
+tags = ["agent-harness", "private"]
+
+  # A line that names the marker on purpose carries the hygiene pragma.
+  [rules.allowlist]
+  description = "A line that names the marker on purpose"
+  regexTarget = "line"
+  regexes = ['''ai-hygiene: allow-private-marker''']
+
 [allowlist]
 description = "Fixtures and generated files, never real credentials"
 # `UNMISTAKABLE-` marks a fake secret a test asserts never reaches an

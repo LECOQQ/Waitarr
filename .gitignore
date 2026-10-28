@@ -28,3 +28,7 @@ build/
 *.egg-info/
 .sync-stamp
 .osv/
+
+# agent-harness: local links, never tracked
+.harness
+.claude/rules/agent-harness.md

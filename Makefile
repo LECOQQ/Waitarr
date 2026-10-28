@@ -61,10 +61,10 @@ info: ## diag: Show project and environment information
 install: doctor ## dev: Install dependencies and configure Git hooks
 	@poetry install --no-interaction
 	@touch .sync-stamp
-	@$(PY) pre-commit install --hook-type commit-msg
+	@$(PY) pre-commit install --hook-type pre-commit --hook-type commit-msg
 
-hooks-install: ## dev: Reinstall the commit-msg hooks
-	@$(PY) pre-commit install --hook-type commit-msg
+hooks-install: ## dev: Reinstall the Git hooks
+	@$(PY) pre-commit install --hook-type pre-commit --hook-type commit-msg
 
 run: sync ## use: Run Waitarr with ./waitarr.toml (or $$WAITARR_CONFIG)
 	@$(PY) waitarr run
