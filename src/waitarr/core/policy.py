@@ -63,9 +63,11 @@ def _folded(values: Sequence[str]) -> frozenset[str]:
 class PlaybackFilter:
     """Which playbacks count. Empty allow-lists mean "everything".
 
-    Every comparison is case-insensitive. A playback with no user, device
-    or client never matches a list that names one, so an allow-list
-    excludes it and an ignore-list keeps it.
+    Every comparison is case-insensitive. A playback with no user, device,
+    client or library never matches a list that names one, so an
+    allow-list excludes it and an ignore-list keeps it. An item in several
+    libraries is ignored if any of them is ignored, and counted by
+    `libraries` if any of them is listed.
     """
 
     users: frozenset[str] = field(default_factory=frozenset)
@@ -73,6 +75,8 @@ class PlaybackFilter:
     ignore_devices: frozenset[str] = field(default_factory=frozenset)
     ignore_clients: frozenset[str] = field(default_factory=frozenset)
     media_types: frozenset[str] = field(default_factory=frozenset)
+    libraries: frozenset[str] = field(default_factory=frozenset)
+    ignore_libraries: frozenset[str] = field(default_factory=frozenset)
     count_paused: bool = False
 
     @classmethod
@@ -84,6 +88,8 @@ class PlaybackFilter:
         ignore_devices: Sequence[str] = (),
         ignore_clients: Sequence[str] = (),
         media_types: Sequence[str] = (),
+        libraries: Sequence[str] = (),
+        ignore_libraries: Sequence[str] = (),
         count_paused: bool = False,
     ) -> PlaybackFilter:
         return cls(
@@ -92,6 +98,8 @@ class PlaybackFilter:
             ignore_devices=_folded(ignore_devices),
             ignore_clients=_folded(ignore_clients),
             media_types=_folded(media_types),
+            libraries=_folded(libraries),
+            ignore_libraries=_folded(ignore_libraries),
             count_paused=count_paused,
         )
 
@@ -108,6 +116,11 @@ class PlaybackFilter:
             return False
         client = (playback.client or "").casefold()
         if client and client in self.ignore_clients:
+            return False
+        libraries = _folded(playback.libraries)
+        if libraries & self.ignore_libraries:
+            return False
+        if self.libraries and not libraries & self.libraries:
             return False
         media_type = (playback.media_type or "").casefold()
         return not self.media_types or media_type in self.media_types

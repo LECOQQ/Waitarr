@@ -281,6 +281,19 @@ class _Reader:
         return value
 
 
+def _flag(variable: str | None, default: Any) -> Any:
+    """A boolean variable (`true`/`false`, `1`/`0`, `yes`/`no`), else the
+    file's value; anything else is returned as is, to be refused."""
+    if variable is None:
+        return default
+    folded = variable.strip().casefold()
+    if folded in {"true", "1", "yes"}:
+        return True
+    if folded in {"false", "0", "no"}:
+        return False
+    return variable
+
+
 def _positive_rate(raw: Any) -> int:
     value = parse_rate(raw)
     if value == 0:
@@ -544,6 +557,8 @@ def parse_config(
             "ignore_devices",
             "ignore_clients",
             "media_types",
+            "libraries",
+            "ignore_libraries",
             "count_paused",
         },
     )
@@ -557,24 +572,33 @@ def parse_config(
         parse_duration,
         timedelta(minutes=3),
     )
-    count_paused = policy_raw.get("count_paused", False)
+    count_paused = _flag(
+        environ.get("WAITARR_COUNT_PAUSED"),
+        policy_raw.get("count_paused", False),
+    )
     if not isinstance(count_paused, bool):
-        reader.fail("[policy] count_paused: must be true or false")
+        reader.fail(
+            "[policy] count_paused: must be true or false "
+            "(WAITARR_COUNT_PAUSED)"
+        )
         count_paused = False
+
+    def filter_list(key: str) -> list[str]:
+        """A filter list: `WAITARR_<KEY>` (comma separated), then the file."""
+        variable = f"WAITARR_{key.upper()}"
+        if variable in environ:
+            listed = environ[variable].split(",")
+            return [v.strip() for v in listed if v.strip()]
+        return reader.string_list(f"[policy] {key}", policy_raw.get(key))
+
     playback_filter = PlaybackFilter.build(
-        users=reader.string_list("[policy] users", policy_raw.get("users")),
-        ignore_users=reader.string_list(
-            "[policy] ignore_users", policy_raw.get("ignore_users")
-        ),
-        ignore_devices=reader.string_list(
-            "[policy] ignore_devices", policy_raw.get("ignore_devices")
-        ),
-        ignore_clients=reader.string_list(
-            "[policy] ignore_clients", policy_raw.get("ignore_clients")
-        ),
-        media_types=reader.string_list(
-            "[policy] media_types", policy_raw.get("media_types")
-        ),
+        users=filter_list("users"),
+        ignore_users=filter_list("ignore_users"),
+        ignore_devices=filter_list("ignore_devices"),
+        ignore_clients=filter_list("ignore_clients"),
+        media_types=filter_list("media_types"),
+        libraries=filter_list("libraries"),
+        ignore_libraries=filter_list("ignore_libraries"),
         count_paused=count_paused,
     )
 

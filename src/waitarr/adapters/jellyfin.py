@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+import time
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 import requests
@@ -12,6 +13,10 @@ from waitarr.core.model import Playback, ServiceVersion
 from waitarr.core.ports import ServiceUnavailable
 
 __all__ = ["JellyfinSource"]
+
+# How long the library folders (`/Library/VirtualFolders`) are trusted
+# before they are read again: libraries change rarely, a tick is 15 s.
+LIBRARY_REFRESH_SECONDS = 600.0
 
 
 class JellyfinSource:
@@ -29,11 +34,15 @@ class JellyfinSource:
         *,
         timeout: float = 10.0,
         session: requests.Session | None = None,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self._name = name
         self._base = url.rstrip("/")
         self._timeout = timeout
         self._http = session or requests.Session()
+        self._monotonic = monotonic
+        self._folders: tuple[tuple[str, tuple[str, ...]], ...] = ()
+        self._folders_read_at: float | None = None
         self._http.headers["Authorization"] = (
             'MediaBrowser Client="Waitarr", Device="Waitarr", '
             f'DeviceId="waitarr-{name}", Version="{__version__}", '
@@ -60,6 +69,10 @@ class JellyfinSource:
             raise ServiceUnavailable(
                 f"{self._base}/Sessions did not return a list"
             )
+        if any(
+            isinstance(s, Mapping) and s.get("NowPlayingItem") for s in sessions
+        ):
+            self._refresh_folders()
         return [
             playback
             for raw in sessions
@@ -83,6 +96,56 @@ class JellyfinSource:
             media_type=_text(item.get("Type")),
             media_path=_text(item.get("Path")),
             paused=paused,
+            libraries=self._libraries_of(_text(item.get("Path"))),
+        )
+
+    def _refresh_folders(self) -> None:
+        """Read each library's name and folders, at most every
+        `LIBRARY_REFRESH_SECONDS`.
+
+        A failed read keeps the folders known so far and is tried again
+        next tick: playbacks still count meanwhile, with what is known.
+        """
+        now = self._monotonic()
+        if (
+            self._folders_read_at is not None
+            and now - self._folders_read_at < LIBRARY_REFRESH_SECONDS
+        ):
+            return
+        try:
+            raw = self._get("/Library/VirtualFolders")
+        except ServiceUnavailable:
+            return
+        if not isinstance(raw, list):
+            return
+        folders = []
+        for library in raw:
+            if not isinstance(library, Mapping):
+                continue
+            name = _text(library.get("Name"))
+            locations = library.get("Locations")
+            if name and isinstance(locations, list):
+                folders.append(
+                    (
+                        name,
+                        tuple(
+                            str(loc).rstrip("/")
+                            for loc in locations
+                            if isinstance(loc, str) and loc.strip("/")
+                        ),
+                    )
+                )
+        self._folders = tuple(folders)
+        self._folders_read_at = now
+
+    def _libraries_of(self, path: str | None) -> tuple[str, ...]:
+        """Every library with a folder holding `path`."""
+        if path is None:
+            return ()
+        return tuple(
+            name
+            for name, locations in self._folders
+            if any(path == d or path.startswith(d + "/") for d in locations)
         )
 
     def _get(self, path: str) -> object:

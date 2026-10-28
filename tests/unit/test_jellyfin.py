@@ -4,7 +4,7 @@ import urllib.request
 import pytest
 
 from tests.fake_jellyfin import FakeJellyfin, session
-from waitarr.adapters.jellyfin import JellyfinSource
+from waitarr.adapters.jellyfin import LIBRARY_REFRESH_SECONDS, JellyfinSource
 from waitarr.core.ports import ServiceUnavailable
 
 KEY = "UNMISTAKABLE-JELLYFIN-KEY"
@@ -142,3 +142,79 @@ def test_the_standalone_control_route_programs_the_sessions(jellyfin):
     with urllib.request.urlopen(request, timeout=2) as response:
         assert response.status == 204
     assert [p.session_id for p in source(jellyfin).playbacks()] == ["remote"]
+
+
+LIBRARIES = {
+    "movies": ["/media/movies"],
+    "Animes": ["/media/movies/animes", "/media/extra/animes/"],
+    "Musiques": ["/media/music"],
+}
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def folder_reads(fake):
+    return [p for p, _ in fake.requests if p == "/Library/VirtualFolders"]
+
+
+def test_an_item_belongs_to_every_library_whose_folder_holds_it(jellyfin):
+    jellyfin.libraries = LIBRARIES
+    jellyfin.sessions = [
+        session("a", path="/media/movies/animes/akira.mkv"),
+        session("b", path="/media/extra/animes/x.mkv"),
+        session("c", path="/media/music/album/01.flac"),
+        session("d", path="/media/movies-old/dune.mkv"),
+        session("e"),
+    ]
+    assert [p.libraries for p in source(jellyfin).playbacks()] == [
+        ("movies", "Animes"),
+        ("Animes",),
+        ("Musiques",),
+        (),
+        (),
+    ]
+
+
+def test_library_folders_are_read_once_then_refreshed_rarely(jellyfin):
+    jellyfin.libraries = LIBRARIES
+    jellyfin.sessions = [session(path="/media/music/a.flac")]
+    clock = Clock()
+    reader = source(jellyfin, monotonic=clock)
+    for _ in range(5):
+        reader.playbacks()
+    assert len(folder_reads(jellyfin)) == 1
+    clock.now = LIBRARY_REFRESH_SECONDS
+    reader.playbacks()
+    assert len(folder_reads(jellyfin)) == 2
+
+
+def test_library_folders_are_not_read_while_nothing_plays(jellyfin):
+    jellyfin.libraries = LIBRARIES
+    jellyfin.sessions = [session(title=None)]
+    source(jellyfin).playbacks()
+    assert folder_reads(jellyfin) == []
+
+
+def test_a_failed_folder_read_keeps_the_playback_and_retries(jellyfin):
+    jellyfin.libraries = LIBRARIES
+    jellyfin.sessions = [session(path="/media/music/a.flac")]
+    reader = source(jellyfin)
+    original = reader._get
+
+    def flaky(path):
+        if path == "/Library/VirtualFolders":
+            raise ServiceUnavailable("down")
+        return original(path)
+
+    reader._get = flaky
+    (playback,) = reader.playbacks()
+    assert playback.libraries == ()
+    reader._get = original
+    (playback,) = reader.playbacks()
+    assert playback.libraries == ("Musiques",)

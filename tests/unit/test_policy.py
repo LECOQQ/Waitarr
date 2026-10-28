@@ -57,3 +57,24 @@ def test_ignore_lists_never_exclude_an_unknown_value():
     f = PlaybackFilter.build(ignore_users=["guest"], ignore_clients=["DLNA"])
     assert f.matches(playback(user="", client=None))
     assert not PlaybackFilter.build(users=["alice"]).matches(playback(user=""))
+
+
+def test_libraries_filter_by_name_case_insensitively():
+    music_ignored = PlaybackFilter.build(ignore_libraries=["Musique"])
+    assert not music_ignored.matches(playback(libraries=("musique",)))
+    assert music_ignored.matches(playback(libraries=("Films",)))
+    assert music_ignored.matches(playback(libraries=()))
+    films_only = PlaybackFilter.build(libraries=["Films"])
+    assert films_only.matches(playback(libraries=("FILMS",)))
+    assert not films_only.matches(playback(libraries=("Musique",)))
+    assert not films_only.matches(playback(libraries=()))
+
+
+def test_an_item_in_several_libraries_is_ignored_if_any_is_ignored():
+    animes = playback(libraries=("movies", "Animes"))
+    assert not PlaybackFilter.build(ignore_libraries=["animes"]).matches(animes)
+    assert PlaybackFilter.build(libraries=["Animes"]).matches(animes)
+    both = PlaybackFilter.build(
+        libraries=["movies"], ignore_libraries=["Animes"]
+    )
+    assert not both.matches(animes)

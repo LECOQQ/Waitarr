@@ -51,19 +51,31 @@ per second.
 
 ## 🎯 `[policy]`
 
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `strategy` | `"global"` | v1's only strategy: throttle every target while anything counted plays. |
-| `release_after` | `"3m"` | Delay after the last counted playback before giving the speed back (`WAITARR_RELEASE_AFTER`). |
-| `users` | `[]` | Only these Jellyfin users count. Empty: everyone. |
-| `ignore_users` | `[]` | These users never count. |
-| `ignore_devices` | `[]` | Sessions on these devices never count. |
-| `ignore_clients` | `[]` | Sessions from these clients (e.g. `"Jellyfin Web"`) never count. |
-| `media_types` | `[]` | Only these item types count (`"Movie"`, `"Episode"`, `"Audio"`, ...). Empty: all. |
-| `count_paused` | `false` | Whether a paused session keeps the throttle on. |
+| Key | Default | Variable | Meaning |
+| --- | --- | --- | --- |
+| `strategy` | `"global"` | | v1's only strategy: throttle every target while anything counted plays. |
+| `release_after` | `"3m"` | `WAITARR_RELEASE_AFTER` | Delay after the last counted playback before giving the speed back. |
+| `users` | `[]` | `WAITARR_USERS` | Only these Jellyfin users count. Empty: everyone. |
+| `ignore_users` | `[]` | `WAITARR_IGNORE_USERS` | These users never count. |
+| `ignore_devices` | `[]` | `WAITARR_IGNORE_DEVICES` | Sessions on these devices never count. |
+| `ignore_clients` | `[]` | `WAITARR_IGNORE_CLIENTS` | Sessions from these clients (e.g. `"Finamp"`, `"Jellyfin Web"`) never count. |
+| `media_types` | `[]` | `WAITARR_MEDIA_TYPES` | Only these item types count (`"Movie"`, `"Episode"`, `"Audio"`, ...). Empty: all. |
+| `libraries` | `[]` | `WAITARR_LIBRARIES` | Only items from these Jellyfin libraries count, by name. Empty: all. |
+| `ignore_libraries` | `[]` | `WAITARR_IGNORE_LIBRARIES` | Items from these libraries never count (e.g. `"Music"`). |
+| `count_paused` | `false` | `WAITARR_COUNT_PAUSED` | Whether a paused session keeps the throttle on (`true` / `false`). |
 
-Names compare case-insensitively. A session without a user name is
-excluded by a `users` list and kept by `ignore_users`. The choice is
+A list variable is comma separated (`WAITARR_IGNORE_CLIENTS=Finamp,Jellyfin
+Media Player`) and replaces the file's list; left empty, the file decides.
+An item belongs to every library with a folder holding its file
+(Jellyfin libraries may share folders). It is ignored if **any** of its
+libraries is in `ignore_libraries`, and counted by `libraries` if **any**
+of them is listed; `ignore_libraries` wins over `libraries`. The folders
+come from `/Library/VirtualFolders`, read when something plays and at
+most every 10 minutes, never per item. A file outside every library, or
+whose folders could not be read yet, has no library.
+
+Names compare case-insensitively. A session without a user name (or
+library) is excluded by an allow-list and kept by an ignore-list. The choice is
 explained in [ADR 0007](adr/0007-playback-filter.md).
 
 ## 🐢 `[throttle]`

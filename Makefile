@@ -79,7 +79,10 @@ lint: ## qa: Check style and types without modifying files
 	@$(PY) pyright
 
 test: ## qa: Run the hermetic test suite (no Docker, no network)
-	@$(PY) pytest -m "not docker and not image and not network"
+	@$(PY) pytest -m "not docker and not image and not network and not live"
+
+test-live: sync ## qa: Read-only tests against the real Jellyfin of WAITARR_LIVE_JELLYFIN_URL (never in CI)
+	@$(PY) pytest -m live tests/integration -rs
 
 test-docker: sync ## qa: Run the integration suite against a disposable qBittorrent container (needs Docker)
 	@$(PY) pytest -m docker tests/integration; \

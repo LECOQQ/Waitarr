@@ -135,8 +135,17 @@ and the reasons behind each choice in [docs/adr/](docs/adr/README.md).
 **Does a playback on my local network count?** Yes. The disk does not
 care where the viewer is.
 
-**Can I leave out a user or a music speaker?** Yes, in `[policy]`; see
-the configuration reference.
+**Can I leave music out?** Yes. Music reads little from the disk; to
+keep the torrents at full speed while it plays, add to the Compose
+`environment`:
+
+```yaml
+      WAITARR_IGNORE_LIBRARIES: Music       # your library's name in Jellyfin
+      WAITARR_IGNORE_CLIENTS: Finamp        # or by client, comma separated
+```
+
+Users, devices, clients, media types and libraries can all be left out
+or singled out; see [the configuration reference](docs/CONFIGURATION.md#-policy).
 
 **What if Waitarr dies while throttling?** Start it again: it gives the
 speed back. `waitarr restore --yes` does it without starting the service.

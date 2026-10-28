@@ -476,3 +476,35 @@ def test_an_invalid_instance_name_is_reported(tmp_path):
         tmp_path, environ={**COMPOSE_ONLY, "WAITARR_QBIT_INSTANCES": "Bad Name"}
     )
     assert mentions(found, "WAITARR_QBIT_INSTANCES", "Bad")
+
+
+def test_playback_filters_come_from_comma_separated_variables(tmp_path):
+    text = MINIMAL + '\n[policy]\nignore_clients = ["Jellyfin Web"]\n'
+    config = load(
+        tmp_path,
+        text,
+        {
+            "WAITARR_IGNORE_CLIENTS": "Finamp, Jellyfin Media Player",
+            "WAITARR_IGNORE_LIBRARIES": "Musique",
+            "WAITARR_USERS": "alice,bob",
+            "WAITARR_COUNT_PAUSED": "true",
+        },
+    )
+    f = config.policy.playback_filter
+    assert f.ignore_clients == {"finamp", "jellyfin media player"}
+    assert f.ignore_libraries == {"musique"}
+    assert f.users == {"alice", "bob"}
+    assert f.count_paused is True
+
+
+def test_filters_fall_back_to_the_file_when_the_variable_is_blank(tmp_path):
+    text = MINIMAL.replace(
+        "[[sources]]", '[policy]\nlibraries = ["Films"]\n\n[[sources]]'
+    )
+    config = load(tmp_path, text, {"WAITARR_LIBRARIES": " "})
+    assert config.policy.playback_filter.libraries == {"films"}
+
+
+def test_an_invalid_count_paused_variable_is_refused(tmp_path):
+    found = problems(tmp_path, environ={"WAITARR_COUNT_PAUSED": "maybe"})
+    assert mentions(found, "count_paused", "WAITARR_COUNT_PAUSED")

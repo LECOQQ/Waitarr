@@ -82,6 +82,7 @@ markers = [
     "docker: tests that start disposable containers (real qBittorrent); run by `make test-docker`, never by `make check`.",
     "image: tests that build the container image locally (never push); run by `make check-image`.",
     "network: tests that reach the network (resolve dependencies from PyPI); run by `make check-dist`.",
+    "live: read-only tests against a real Jellyfin named by WAITARR_LIVE_JELLYFIN_URL; run by `make test-live`, never in CI.",
 ]
 
 [tool.commitizen]

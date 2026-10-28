@@ -1,7 +1,8 @@
 """A tiny fake Jellyfin: just enough HTTP for `JellyfinSource`.
 
-Serves `GET /System/Info/Public` (no auth) and `GET /Sessions` (needs an
-`Authorization` header carrying `Token="<api key>"`, else 401). Sessions
+Serves `GET /System/Info/Public` (no auth), `GET /Sessions` and
+`GET /Library/VirtualFolders` (both need an `Authorization` header
+carrying `Token="<api key>"`, else 401). Sessions
 are programmed by the test, or over HTTP with `POST /__test__/sessions`
 when the module runs on its own, e.g. in a container:
 
@@ -68,6 +69,7 @@ class FakeJellyfin:
         self.api_key = api_key
         self.version = version
         self.sessions: list[dict[str, Any]] = []
+        self.libraries: dict[str, list[str]] = {}  # name -> folders
         self.failing = False  # answer HTTP 500 to everything
         self.requests: list[tuple[str, str]] = []  # (path, token seen)
         fake = self
@@ -125,11 +127,19 @@ class FakeJellyfin:
                     "ServerName": "fake",
                 },
             )
+        elif match is None or match.group(1) != self.api_key:
+            self._reply(handler, 401, {"error": "unauthorized"})
         elif path == "/Sessions":
-            if match is None or match.group(1) != self.api_key:
-                self._reply(handler, 401, {"error": "unauthorized"})
-            else:
-                self._reply(handler, 200, self.sessions)
+            self._reply(handler, 200, self.sessions)
+        elif path == "/Library/VirtualFolders":
+            self._reply(
+                handler,
+                200,
+                [
+                    {"Name": name, "Locations": locations}
+                    for name, locations in self.libraries.items()
+                ],
+            )
         else:
             self._reply(handler, 404, {"error": "not found"})
 

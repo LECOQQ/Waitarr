@@ -44,7 +44,8 @@ class Playback:
 
     `media_path` is the file being read, when the source exposes it. The
     v1 policy ignores it; a disk-aware policy will map it onto a target's
-    save paths.
+    save paths. `libraries` names every library whose folders hold that
+    file (libraries may overlap), empty when the source could not tell.
     """
 
     source: str
@@ -56,6 +57,7 @@ class Playback:
     media_type: str | None
     media_path: str | None
     paused: bool
+    libraries: tuple[str, ...] = ()
 
     def describe(self) -> str:
         who = self.user or "someone"

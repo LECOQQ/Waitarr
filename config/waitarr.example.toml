@@ -45,6 +45,8 @@ ignore_users = []     # these never count
 ignore_devices = []   # e.g. ["Kitchen speaker"]
 ignore_clients = []   # e.g. ["Jellyfin Media Player"]
 media_types = []      # e.g. ["Movie", "Episode"] to ignore music
+libraries = []        # only these Jellyfin libraries count, by name
+ignore_libraries = [] # e.g. ["Music"]
 count_paused = false  # a paused session keeps the throttle on
 
 # The limits applied while throttling, as alternative speed limits.

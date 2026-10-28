@@ -27,6 +27,7 @@ def playback(
     client: str | None = "Jellyfin Web",
     media_type: str | None = "Movie",
     title: str | None = "Dune",
+    libraries: tuple[str, ...] = (),
 ) -> Playback:
     return Playback(
         source="jellyfin",
@@ -38,6 +39,7 @@ def playback(
         media_type=media_type,
         media_path=None,
         paused=paused,
+        libraries=libraries,
     )
 
 
