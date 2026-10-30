@@ -13,7 +13,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
-from waitarr.core.model import Diagnostic, Playback, ServiceVersion, TargetState
+from waitarr.core.model import (
+    Diagnostic,
+    Playback,
+    ScheduledTask,
+    ServiceVersion,
+    TargetState,
+)
 
 __all__ = [
     "ActivitySource",
@@ -23,6 +29,7 @@ __all__ = [
     "ServiceUnavailable",
     "Severity",
     "StateStore",
+    "TaskHost",
     "ThrottleTarget",
     "WriteRefused",
 ]
@@ -73,6 +80,34 @@ class ThrottleTarget(Protocol):
 
         Must be idempotent: the core retries a write it cannot prove
         landed by calling `apply` again with the same state.
+        """
+        ...
+
+
+class TaskHost(Protocol):
+    """Something that runs scheduled tasks Waitarr can stop and start
+    again. It has no `version()`: its source of activity already reports
+    the service's."""
+
+    @property
+    def name(self) -> str: ...
+
+    def tasks(self) -> Sequence[ScheduledTask]:
+        """Return every scheduled task the host lists."""
+        ...
+
+    def stop(self, task_id: str) -> None:
+        """Ask a running task to stop; no effect if it is not running.
+
+        The task keeps `Cancelling` for a few seconds before it is idle.
+        Raises `WriteRefused` when built read-only.
+        """
+        ...
+
+    def start(self, task_id: str) -> None:
+        """Start a task from zero; no effect if it is already running.
+
+        Raises `WriteRefused` when built read-only.
         """
         ...
 
