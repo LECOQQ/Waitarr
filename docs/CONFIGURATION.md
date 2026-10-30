@@ -54,7 +54,7 @@ per second.
 | Key | Default | Variable | Meaning |
 | --- | --- | --- | --- |
 | `strategy` | `"global"` | | v1's only strategy: throttle every target while anything counted plays. |
-| `release_after` | `"3m"` | `WAITARR_RELEASE_AFTER` | Delay after the last counted playback before giving the speed back. |
+| `release_after` | `"3m"` | `WAITARR_RELEASE_AFTER` | Delay after the last counted playback before giving the speed back. Raise it (`"10m"`) if choosing the next film often takes longer: Jellyfin does not report browsing ([ADR 0014](adr/0014-no-anticipation-from-sessions.md)). |
 | `users` | `[]` | `WAITARR_USERS` | Only these Jellyfin users count. Empty: everyone. |
 | `ignore_users` | `[]` | `WAITARR_IGNORE_USERS` | These users never count. |
 | `ignore_devices` | `[]` | `WAITARR_IGNORE_DEVICES` | Sessions on these devices never count. |
