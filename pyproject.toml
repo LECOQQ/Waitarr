@@ -2,7 +2,7 @@
 # Legacy Poetry layout, like qbit-ops: Release Please's `python` release
 # type updates `[tool.poetry].version`.
 name = "waitarr"
-version = "0.1.0"
+version = "0.1.1"
 description = "Throttle qBittorrent while something plays on Jellyfin, without pausing a single torrent, then give the speed back."
 authors = ["LECOQQ <50244398+LECOQQ@users.noreply.github.com>"]
 license = "MIT"
@@ -87,5 +87,5 @@ markers = [
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.1.0"
+version = "0.1.1"
 tag_format = "v$version"
