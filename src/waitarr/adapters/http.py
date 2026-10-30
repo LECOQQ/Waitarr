@@ -114,6 +114,22 @@ def status_document(
             }
             for name, target in status.targets.items()
         },
+        "tasks": {
+            host: {
+                key: {
+                    "ownership": task.ownership.value,
+                    "state": task.state.value if task.state else None,
+                    "progress": task.progress,
+                    "last_action": (
+                        task.last_action.value if task.last_action else None
+                    ),
+                    "last_action_at": _iso(task.last_action_at),
+                }
+                for key, task in owned.items()
+            }
+            for host, owned in status.tasks.items()
+        },
+        "task_errors": dict(status.task_errors),
     }
     return healthy, document
 
