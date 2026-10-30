@@ -12,6 +12,7 @@ from waitarr.adapters.http import HttpSurface, status_document
 from waitarr.compatibility import Verdict, assess
 from waitarr.config import AppConfig
 from waitarr.core.engine import Engine, utc_now
+from waitarr.core.model import Diagnostic
 from waitarr.core.ports import WriteRefused
 from waitarr.core.units import format_duration
 
@@ -20,7 +21,8 @@ __all__ = ["Service"]
 logger = logging.getLogger("waitarr")
 
 _KINDS = {"source": "jellyfin", "target": "qbittorrent"}
-# Settings can be fixed while Waitarr runs: look again every hour.
+# Settings can be fixed while Waitarr runs: look again every hour, and
+# log only what changed since the last look.
 _DIAGNOSE_EVERY = 3600.0
 
 
@@ -30,6 +32,7 @@ class Service:
         self._engine = engine
         self._stop = threading.Event()
         self._last_diagnosis = 0.0
+        self._diagnostics: frozenset[Diagnostic] = frozenset()
         self._wake = threading.Event()
         self._http: HttpSurface | None = None
         if config.http.port is not None:
@@ -127,13 +130,19 @@ class Service:
 
     def _diagnose(self) -> None:
         self._last_diagnosis = time.monotonic()
-        for diagnostic in self._engine.diagnose():
+        found = self._engine.diagnose()
+        for diagnostic in found:
+            if diagnostic in self._diagnostics:
+                continue
             log = (
                 logger.warning
                 if diagnostic.severity == "warning"
                 else (logger.info)
             )
             log("%s", diagnostic.message)
+        for diagnostic in self._diagnostics - set(found):
+            logger.info("No longer the case: %s", diagnostic.message)
+        self._diagnostics = frozenset(found)
 
     def _install_signal_handlers(self) -> None:
         if threading.current_thread() is not threading.main_thread():
