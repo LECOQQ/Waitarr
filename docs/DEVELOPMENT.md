@@ -13,6 +13,7 @@ make help           # every target, by category
 | `make check-image` | Builds the image and runs it end to end against disposable containers. |
 | `make image-multiarch` | Builds amd64 and arm64 locally (buildx + QEMU), never pushes. |
 | `make secrets` | gitleaks over the working tree (`GITLEAKS_SCOPE=git` for history). |
+| `make sast` | Semgrep CE over the code with pinned community rules (`.sast/sources`); `SAST_ENGINE=opengrep` runs Opengrep on the same rules, `SAST_STRICT=1` fails on findings. CI reports to code scanning without failing. |
 | `make check-dist` | Builds the wheel and sdist, `twine check`, and an install smoke test. |
 | `make deps-audit` | `pip-audit` over the locked dependencies. |
 | `make vulns` | osv-scanner over `poetry.lock` and the built image: a Python vulnerability fails, a base-image OS one is listed (`scripts/osv_gate.py`). CI runs the lockfile scan on every pull request, push to `main` and weekly. |

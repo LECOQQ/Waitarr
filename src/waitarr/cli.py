@@ -182,6 +182,8 @@ def status(
 ) -> None:
     """Query a running Waitarr's /healthz (exit 0 when healthy)."""
     try:
+        # `url` is the operator's own --url, a local health probe.
+        # nosemgrep: dynamic-urllib-use-detected
         with urllib.request.urlopen(
             f"{url.rstrip('/')}/healthz", timeout=5
         ) as r:
