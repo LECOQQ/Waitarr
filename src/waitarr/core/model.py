@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 __all__ = [
     "Diagnostic",
     "Limits",
     "Playback",
+    "ScheduledTask",
     "ServiceVersion",
     "TargetState",
+    "TaskRun",
+    "TaskState",
 ]
 
 
@@ -87,3 +91,47 @@ class ServiceVersion:
     product: str
     version: str | None
     api_version: str | None = None
+
+
+class TaskState(StrEnum):
+    """Where a scheduled task is, as its host reports it.
+
+    A state the adapter does not know is `ServiceUnavailable`, never a
+    guess.
+    """
+
+    IDLE = "Idle"
+    RUNNING = "Running"
+    CANCELLING = "Cancelling"
+
+
+@dataclass(frozen=True)
+class TaskRun:
+    """The last execution of a task, as the host reports it.
+
+    `start` is the host's own start time, verbatim: it is the identity
+    of an execution, compared by equality and never parsed or compared
+    with Waitarr's clock. `status` is the host's word for the outcome
+    (`Completed`, `Cancelled`, `Failed`...).
+    """
+
+    start: str
+    status: str
+
+
+@dataclass(frozen=True)
+class ScheduledTask:
+    """One scheduled task of a media server, as observed.
+
+    `key` is the stable name Waitarr identifies it by; `id` is only what
+    the host wants back in a call and is never persisted. `progress` is a
+    percentage, `None` when the task is not running. `last` is `None`
+    when the task never ran.
+    """
+
+    key: str
+    id: str
+    name: str
+    state: TaskState
+    progress: float | None = None
+    last: TaskRun | None = None
