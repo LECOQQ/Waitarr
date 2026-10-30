@@ -103,6 +103,13 @@ Each extra qBittorrent is a name in `WAITARR_QBIT_INSTANCES` with its own
 Image: amd64 and arm64. Prefer Python? See
 [docs/PYTHON.md](docs/PYTHON.md).
 
+Each release image carries a signed build provenance. To check that an
+image was built from this repository:
+
+```bash
+gh attestation verify oci://ghcr.io/lecoqq/waitarr:<version> -R LECOQQ/Waitarr
+```
+
 ## ⚙️ Configuration
 
 Delay before the speed comes back, throttle limits, which users or devices
