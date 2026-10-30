@@ -5,14 +5,18 @@ Safety rules enforced here rather than in an adapter:
 
 - an unreadable source means the demand is unknown: no target changes;
 - an unreadable target is left alone this tick;
-- with `simulate`, `ThrottleTarget.apply` is never called and nothing
-  is persisted -- observation mode cannot change anything anywhere.
+- an unreadable task host means no task changes this tick, and never
+  touches the health of the tick: the throttling goes on;
+- with `simulate`, `ThrottleTarget.apply`, `TaskHost.stop` and
+  `TaskHost.start` are never called and nothing is persisted --
+  observation mode cannot change anything anywhere.
 """
 
 from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
@@ -21,8 +25,10 @@ from waitarr.core.model import (
     Diagnostic,
     Limits,
     Playback,
+    ScheduledTask,
     ServiceVersion,
     TargetState,
+    TaskState,
 )
 from waitarr.core.policy import Demand, ThrottlePolicy
 from waitarr.core.ports import (
@@ -33,6 +39,7 @@ from waitarr.core.ports import (
     ServiceUnavailable,
     Severity,
     StateStore,
+    TaskHost,
     ThrottleTarget,
 )
 from waitarr.core.reconcile import (
@@ -49,6 +56,15 @@ from waitarr.core.records import (
     decode_state,
     encode_state,
 )
+from waitarr.core.tasks import (
+    TaskAction,
+    TaskOwnership,
+    TaskRecord,
+    TaskStep,
+    TaskWrite,
+    restore_task,
+    step_task,
+)
 from waitarr.core.units import format_duration, format_rate
 
 __all__ = [
@@ -57,6 +73,8 @@ __all__ = [
     "ServiceHealth",
     "TargetBinding",
     "TargetStatus",
+    "TaskBinding",
+    "TaskStatus",
 ]
 
 logger = logging.getLogger("waitarr")
@@ -64,6 +82,13 @@ logger = logging.getLogger("waitarr")
 # While a service stays unreachable, its outage is logged once when it starts
 # and then at most once per this interval.
 UNREACHABLE_REMINDER = timedelta(minutes=10)
+
+# `restore_all` waits this many seconds, at most, for a task being cancelled.
+CANCEL_WAIT_SECONDS = 10
+
+# The policy sees a task host as one more thing to hold; its name is
+# prefixed so that it cannot collide with a target's.
+_TASK_HOLD = "tasks:"
 
 
 def utc_now() -> datetime:
@@ -77,6 +102,17 @@ class TargetBinding:
 
     target: ThrottleTarget
     throttle_limits: Limits | None = None
+
+
+@dataclass(frozen=True)
+class TaskBinding:
+    """A task host, the task keys to hold while the policy asks for it, and
+    whether Waitarr may stop them (off: it only reports them). Tasks it
+    already stopped are started again either way."""
+
+    host: TaskHost
+    keys: tuple[str, ...] = ()
+    suspend: bool = True
 
 
 @dataclass(frozen=True)
@@ -97,6 +133,17 @@ class TargetStatus:
 
 
 @dataclass(frozen=True)
+class TaskStatus:
+    """A task Waitarr owns (stopped it, or yielded it to a human)."""
+
+    ownership: TaskOwnership
+    state: TaskState | None = None
+    progress: float | None = None
+    last_action: TaskAction | None = None
+    last_action_at: datetime | None = None
+
+
+@dataclass(frozen=True)
 class EngineStatus:
     simulate: bool
     started_at: datetime
@@ -105,6 +152,10 @@ class EngineStatus:
     services: dict[str, ServiceHealth]
     targets: dict[str, TargetStatus]
     diagnostics: tuple[Diagnostic, ...] = ()
+    # Per task host, the tasks Waitarr owns; and the hosts that cannot be
+    # read, with the reason. Neither changes `healthy`.
+    tasks: dict[str, dict[str, TaskStatus]] = field(default_factory=dict)
+    task_errors: dict[str, str] = field(default_factory=dict)
 
     @property
     def healthy(self) -> bool:
@@ -124,12 +175,25 @@ class _Tracker:
 
 
 @dataclass
+class _TaskFeed:
+    """What the engine remembers of one task host between ticks, in
+    memory only: its outage, and the tasks it saw running during a hold
+    (with the time it first saw them)."""
+
+    down_since: datetime | None = None
+    last_logged_at: datetime | None = None
+    seen_running: dict[str, datetime] = field(default_factory=dict)
+
+
+@dataclass
 class _Runtime:
     last_tick_at: datetime | None = None
     playbacks: tuple[Playback, ...] = ()
     services: dict[str, ServiceHealth] = field(default_factory=dict)
     targets: dict[str, TargetStatus] = field(default_factory=dict)
     diagnostics: tuple[Diagnostic, ...] = ()
+    tasks: dict[str, dict[str, TaskStatus]] = field(default_factory=dict)
+    task_errors: dict[str, str] = field(default_factory=dict)
 
 
 class Engine:
@@ -145,6 +209,8 @@ class Engine:
         simulate: bool,
         failure_threshold: int = 2,
         clock: Callable[[], datetime] = utc_now,
+        task_hosts: Sequence[TaskBinding] = (),
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         if not sources:
             raise ValueError("at least one activity source is required")
@@ -152,6 +218,8 @@ class Engine:
             raise ValueError("at least one throttle target is required")
         self._sources = tuple(sources)
         self._targets = tuple(targets)
+        self._task_hosts = tuple(task_hosts)
+        self._sleep = sleep
         self._policy = policy
         self._store = store
         self._notifier = notifier
@@ -173,7 +241,9 @@ class Engine:
                 b.target.name: TargetStatus(Ownership.IDLE, None)
                 for b in targets
             },
+            tasks={b.host.name: {} for b in self._task_hosts},
         )
+        self._feeds = {b.host.name: _TaskFeed() for b in self._task_hosts}
         self._sessions: dict[tuple[str, str], Playback] = {}
 
     @property
@@ -187,6 +257,10 @@ class Engine:
     @property
     def bindings(self) -> tuple[TargetBinding, ...]:
         return self._targets
+
+    @property
+    def task_bindings(self) -> tuple[TaskBinding, ...]:
+        return self._task_hosts
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -202,24 +276,51 @@ class Engine:
             for name, record in document.records.items()
             if record.ownership is not Ownership.IDLE or record.pending
         )
+        owned_tasks = sorted(
+            (source, key)
+            for source, records in document.tasks.items()
+            for key, record in records.items()
+            if record.ownership is not TaskOwnership.IDLE or record.pending
+        )
         configured = {b.target.name for b in self._targets}
+        configured_sources = {b.host.name for b in self._task_hosts}
         orphans = [name for name in owned if name not in configured]
+        orphans += [
+            f"the task {key} of {source}"
+            for source, key in owned_tasks
+            if source not in configured_sources
+        ]
         if orphans and not self._simulate:
             raise StateDocumentError(
                 f"the state file says Waitarr still owns {', '.join(orphans)}, "
                 "which the configuration no longer declares. Restore it "
                 "first with the previous configuration (`waitarr restore "
-                "--yes`), or put the target back under its old name."
+                "--yes`), or put it back under its old name."
             )
         if self._simulate:
-            if owned:
+            if owned or owned_tasks:
                 logger.warning(
                     "The state file says a previous active run still owns "
                     "%s. Observation mode never writes, so it will not "
                     "give it back: run `waitarr restore` in active mode.",
-                    ", ".join(owned),
+                    ", ".join(
+                        [*owned, *(f"{k} of {s}" for s, k in owned_tasks)]
+                    ),
                 )
             return
+        document = replace(
+            document,
+            tasks={
+                source: records
+                for source, records in document.tasks.items()
+                if source in configured_sources
+            },
+            task_memory={
+                source: seen
+                for source, seen in document.task_memory.items()
+                if source in configured_sources
+            },
+        )
         self._document = document
         for name in owned:
             logger.info(
@@ -227,11 +328,24 @@ class Engine:
                 name,
                 document.records[name].ownership.value,
             )
+        for source, key in owned_tasks:
+            logger.info(
+                "Resuming ownership of the task %s of %s from the previous "
+                "run (%s).",
+                key,
+                source,
+                document.tasks[source][key].ownership.value,
+            )
         with self._lock:
             for name, record in document.records.items():
                 if name in self._runtime.targets:
                     self._runtime.targets[name] = TargetStatus(
                         record.ownership, None
+                    )
+            for source, key in owned_tasks:
+                if source in self._runtime.tasks:
+                    self._runtime.tasks[source][key] = TaskStatus(
+                        document.tasks[source][key].ownership
                     )
 
     def check_versions(self) -> dict[str, ServiceVersion | None]:
@@ -310,13 +424,38 @@ class Engine:
             self._activity_unknown = False
             self._log_playback_changes(playbacks)
             names = [b.target.name for b in self._targets]
+            names += [_TASK_HOLD + b.host.name for b in self._task_hosts]
             result = self._policy.decide(
-                playbacks, names, now, self._document.memory
+                playbacks,
+                names,
+                now,
+                {
+                    **self._document.memory,
+                    **{
+                        _TASK_HOLD + source: seen
+                        for source, seen in self._document.task_memory.items()
+                    },
+                },
             )
-            self._document = replace(self._document, memory=result.memory)
+            self._document = replace(
+                self._document,
+                memory={
+                    name: seen
+                    for name, seen in result.memory.items()
+                    if not name.startswith(_TASK_HOLD)
+                },
+                task_memory={
+                    name[len(_TASK_HOLD) :]: seen
+                    for name, seen in result.memory.items()
+                    if name.startswith(_TASK_HOLD)
+                },
+            )
             for binding in self._targets:
                 demand = result.demands[binding.target.name]
                 self._tick_target(binding, demand, now)
+            for task_binding in self._task_hosts:
+                demand = result.demands[_TASK_HOLD + task_binding.host.name]
+                self._tick_tasks(task_binding, demand, now)
             self._save()
         with self._lock:
             self._runtime.last_tick_at = now
@@ -339,6 +478,15 @@ class Engine:
                         "[observe] %s: would restore the state found before.",
                         binding.target.name,
                     )
+            for task_binding in self._task_hosts:
+                source = task_binding.host.name
+                for key, task in self._document.tasks.get(source, {}).items():
+                    if task.ownership is TaskOwnership.STOPPED:
+                        logger.info(
+                            "%s: [observe] would start task %s again.",
+                            source,
+                            key,
+                        )
             return True
         complete = True
         now = self._clock()
@@ -362,6 +510,9 @@ class Engine:
             complete = complete and landed
             shown = step.write if landed and step.write else observed
             self._publish_target(target.name, step.action, shown, now)
+        for task_binding in self._task_hosts:
+            if not self._restore_tasks(task_binding, now):
+                complete = False
         self._save()
         return complete
 
@@ -377,6 +528,8 @@ class Engine:
                 services=dict(self._runtime.services),
                 targets=dict(self._runtime.targets),
                 diagnostics=self._runtime.diagnostics,
+                tasks={s: dict(t) for s, t in self._runtime.tasks.items()},
+                task_errors=dict(self._runtime.task_errors),
             )
 
     # -- internals ---------------------------------------------------------
@@ -491,6 +644,369 @@ class Engine:
                 observed=observed,
                 last_action=last_action,
                 last_action_at=last_action_at,
+            )
+
+    # -- tasks -------------------------------------------------------------
+
+    def _task_records(self, source: str) -> dict[str, TaskRecord]:
+        return dict(self._document.tasks.get(source, {}))
+
+    def _set_task_record(
+        self, source: str, key: str, record: TaskRecord
+    ) -> None:
+        records = self._task_records(source)
+        if record.ownership is TaskOwnership.IDLE:
+            records.pop(key, None)
+        else:
+            records[key] = record
+        tasks = dict(self._document.tasks)
+        tasks[source] = records
+        self._document = replace(self._document, tasks=tasks)
+
+    def _read_tasks(
+        self, binding: TaskBinding, now: datetime
+    ) -> dict[str, ScheduledTask] | None:
+        """The host's tasks by key, or `None` when it cannot be read. An
+        outage is logged and shown in the status, nothing more."""
+        source = binding.host.name
+        feed = self._feeds[source]
+        try:
+            listed = binding.host.tasks()
+        except ServiceUnavailable as error:
+            self._task_failed(source, feed, str(error), now)
+            return None
+        if feed.down_since is not None:
+            logger.info(
+                "%s: its tasks can be read again after %s.",
+                source,
+                format_duration(now - feed.down_since),
+            )
+            feed.down_since = None
+            feed.last_logged_at = None
+            with self._lock:
+                self._runtime.task_errors.pop(source, None)
+        return {task.key: task for task in listed}
+
+    def _task_failed(
+        self, source: str, feed: _TaskFeed, error: str, now: datetime
+    ) -> None:
+        if feed.down_since is None:
+            feed.down_since = now
+            feed.last_logged_at = now
+            logger.warning(
+                "%s: its tasks cannot be read, none is changed until they "
+                "can: %s",
+                source,
+                error,
+            )
+        elif (
+            feed.last_logged_at is None
+            or now - feed.last_logged_at >= UNREACHABLE_REMINDER
+        ):
+            feed.last_logged_at = now
+            logger.warning(
+                "%s: its tasks still cannot be read after %s (%s).",
+                source,
+                format_duration(now - feed.down_since),
+                error,
+            )
+        with self._lock:
+            self._runtime.task_errors[source] = error
+
+    def _tick_tasks(
+        self, binding: TaskBinding, demand: Demand, now: datetime
+    ) -> None:
+        source = binding.host.name
+        feed = self._feeds[source]
+        records = self._task_records(source)
+        # No call when nothing holds, nothing is owned and nothing was seen
+        # running: an idle Waitarr costs the host nothing.
+        if not (demand.throttle or records or feed.seen_running):
+            return
+        observed = self._read_tasks(binding, now)
+        if observed is None:
+            return
+        self._log_task_activity(binding, feed, observed, demand.throttle, now)
+        keys = [*binding.keys, *(k for k in records if k not in binding.keys)]
+        for key in keys:
+            self._tick_task(binding, key, observed.get(key), demand, now)
+
+    def _tick_task(
+        self,
+        binding: TaskBinding,
+        key: str,
+        observed: ScheduledTask | None,
+        demand: Demand,
+        now: datetime,
+    ) -> None:
+        source = binding.host.name
+        record = self._task_records(source).get(key, TaskRecord())
+        suspend = binding.suspend and key in binding.keys
+        step = step_task(
+            record,
+            observed,
+            hold=demand.throttle,
+            suspend=suspend,
+            simulate=self._simulate,
+        )
+        self._log_task_step(source, key, observed, step, demand)
+        if self._simulate or step.write is None:
+            self._set_task_record(source, key, step.record)
+            self._publish_task(source, key, step, observed, now)
+            return
+        assert observed is not None
+        self._execute_task(
+            binding,
+            key,
+            observed,
+            step,
+            now,
+            hold=demand.throttle,
+            suspend=suspend,
+        )
+
+    def _execute_task(
+        self,
+        binding: TaskBinding,
+        key: str,
+        observed: ScheduledTask,
+        step: TaskStep,
+        now: datetime,
+        *,
+        hold: bool,
+        suspend: bool,
+    ) -> bool:
+        """Write ahead, send, read back. Returns whether the write landed.
+
+        The task is then judged by the same machine as at the next tick,
+        so that a stop still being cancelled stays pending until its first
+        idle reading.
+        """
+        host = binding.host
+        source = host.name
+        self._set_task_record(source, key, step.record)
+        self._save()
+        try:
+            if step.write is TaskWrite.STOP:
+                host.stop(observed.id)
+            else:
+                host.start(observed.id)
+            after = self._read_tasks(binding, now)
+        except ServiceUnavailable as error:
+            logger.error(
+                "%s: task %s: %s failed (%s); it will be retried next tick.",
+                source,
+                key,
+                step.write.value if step.write else "write",
+                error,
+            )
+            self._publish_task(source, key, step, observed, now)
+            return False
+        if after is None:
+            self._publish_task(source, key, step, observed, now)
+            return False
+        after_task = after.get(key)
+        settled = step_task(
+            step.record,
+            after_task,
+            hold=hold,
+            suspend=suspend,
+            simulate=False,
+        )
+        landed = settled.write is None
+        if landed:
+            self._set_task_record(source, key, settled.record)
+            self._save()
+        else:
+            logger.warning(
+                "%s: task %s: the %s did not land; retrying next tick.",
+                source,
+                key,
+                step.write.value if step.write else "write",
+            )
+        self._publish_task(source, key, step, after_task, now)
+        return landed
+
+    def _restore_tasks(self, binding: TaskBinding, now: datetime) -> bool:
+        """Start again every task Waitarr stopped. A task being cancelled
+        is waited for, a few seconds at most; if it is still not idle, its
+        record stays for the next start."""
+        source = binding.host.name
+        records = {
+            key: record
+            for key, record in self._task_records(source).items()
+            if record.ownership is not TaskOwnership.IDLE or record.pending
+        }
+        if not records:
+            return True
+        observed = self._read_tasks(binding, now)
+        if observed is None:
+            logger.error(
+                "%s: its tasks cannot be read, they cannot be restored now; "
+                "the state file keeps what to restore at the next start.",
+                source,
+            )
+            return False
+        complete = True
+        for key, record in records.items():
+            step = restore_task(record, observed.get(key))
+            for _ in range(CANCEL_WAIT_SECONDS):
+                if step.action is not TaskAction.WAIT:
+                    break
+                self._sleep(1.0)
+                observed = self._read_tasks(binding, now)
+                if observed is None:
+                    return False
+                step = restore_task(record, observed.get(key))
+            if step.action is TaskAction.WAIT:
+                complete = False
+                logger.error(
+                    "%s: task %s is still being cancelled; the state file "
+                    "keeps it, it is started again at the next start.",
+                    source,
+                    key,
+                )
+                continue
+            task = observed.get(key)
+            self._log_task_step(source, key, task, step, None)
+            if step.write is None:
+                self._set_task_record(source, key, step.record)
+                self._publish_task(source, key, step, task, now)
+                continue
+            assert task is not None
+            landed = self._execute_task(
+                binding, key, task, step, now, hold=False, suspend=False
+            )
+            complete = complete and landed
+        return complete
+
+    def _publish_task(
+        self,
+        source: str,
+        key: str,
+        step: TaskStep,
+        observed: ScheduledTask | None,
+        now: datetime,
+        *,
+        action: TaskAction | None = None,
+    ) -> None:
+        action = action or step.action
+        record = self._task_records(source).get(key)
+        with self._lock:
+            tasks = self._runtime.tasks[source]
+            previous = tasks.get(key)
+            if record is None:
+                tasks.pop(key, None)
+                return
+            if action in (TaskAction.NONE, TaskAction.WAIT) and previous:
+                last_action, last_action_at = (
+                    previous.last_action,
+                    previous.last_action_at,
+                )
+            else:
+                last_action, last_action_at = action, now
+            tasks[key] = TaskStatus(
+                ownership=record.ownership,
+                state=observed.state if observed else None,
+                progress=observed.progress if observed else None,
+                last_action=last_action,
+                last_action_at=last_action_at,
+            )
+
+    def _log_task_activity(
+        self,
+        binding: TaskBinding,
+        feed: _TaskFeed,
+        observed: dict[str, ScheduledTask],
+        hold: bool,
+        now: datetime,
+    ) -> None:
+        """One line when a listed task is seen running during a hold, one
+        when it ends -- whatever the option and whoever owns the task."""
+        source = binding.host.name
+        for key in binding.keys:
+            task = observed.get(key)
+            active = task is not None and task.state is not TaskState.IDLE
+            if active and hold and key not in feed.seen_running:
+                assert task is not None
+                feed.seen_running[key] = now
+                logger.info(
+                    "%s: task %s is running (%s), seen since %s.",
+                    source,
+                    _task_label(task, key),
+                    _describe_progress(task),
+                    now.astimezone().strftime("%H:%M"),
+                )
+            elif not active and key in feed.seen_running:
+                del feed.seen_running[key]
+                logger.info(
+                    "%s: task %s is no longer running.",
+                    source,
+                    _task_label(task, key),
+                )
+
+    def _log_task_step(
+        self,
+        source: str,
+        key: str,
+        observed: ScheduledTask | None,
+        step: TaskStep,
+        demand: Demand | None,
+    ) -> None:
+        would = "[observe] would " if self._simulate else ""
+        label = _task_label(observed, key)
+        action = step.action
+        if action is TaskAction.STOP and observed is not None:
+            why = ""
+            if demand is not None and demand.playbacks:
+                why = " -- " + "; ".join(p.describe() for p in demand.playbacks)
+            logger.info(
+                "%s: %sstop task %s (%s)%s.",
+                source,
+                would,
+                label,
+                _describe_progress(observed),
+                why,
+            )
+        elif action is TaskAction.START:
+            logger.info(
+                "%s: %sstart task %s again (it restarts from zero).",
+                source,
+                would,
+                label,
+            )
+        elif action is TaskAction.CONFIRM:
+            logger.info(
+                "%s: task %s was stopped by Waitarr; it is started again "
+                "when playback has stopped.",
+                source,
+                label,
+            )
+        elif action is TaskAction.YIELD:
+            logger.info(
+                "%s: task %s is running again: a human decision, left "
+                "alone until playback stops.",
+                source,
+                label,
+            )
+        elif action is TaskAction.FORGET and observed is None:
+            logger.warning(
+                "%s: task %s is no longer listed; Waitarr forgets it.",
+                source,
+                key,
+            )
+        elif action is TaskAction.FORGET:
+            logger.info(
+                "%s: task %s needs nothing more from Waitarr; forgotten.",
+                source,
+                label,
+            )
+        elif action is TaskAction.RETRY and step.write is not None:
+            logger.warning(
+                "%s: a previous %s of task %s did not land; retrying.",
+                source,
+                step.write.value,
+                label,
             )
 
     def _service_ok(self, name: str, now: datetime) -> None:
@@ -653,10 +1169,28 @@ class Engine:
         parts.append(f"{len(status.playbacks)} session(s)")
         for name, target in status.targets.items():
             parts.append(f"{name}={target.ownership.value}")
+        held = sum(
+            1
+            for tasks in status.tasks.values()
+            for task in tasks.values()
+            if task.ownership is TaskOwnership.STOPPED
+        )
+        if held:
+            parts.append(f"{held} task(s) held")
         down = [n for n, s in status.services.items() if s.reachable is False]
         if down:
             parts.append("unreachable: " + ", ".join(down))
         return ", ".join(parts)
+
+
+def _task_label(task: ScheduledTask | None, key: str) -> str:
+    return f"{task.name} ({key})" if task is not None else key
+
+
+def _describe_progress(task: ScheduledTask) -> str:
+    if task.progress is None:
+        return "progress unknown"
+    return f"{task.progress:.0f}% done"
 
 
 def _session_line(playback: Playback, verb: str) -> str:
