@@ -78,6 +78,17 @@ name = "jellyfin"
 type = "jellyfin"
 url = "http://jellyfin:8096"
 # API key (Dashboard > API Keys): WAITARR_JELLYFIN_API_KEY
+#
+# While something plays, stop the heavy scheduled tasks of this Jellyfin
+# and start them again when the throttle ends (a stopped task restarts
+# from zero). Set to false to only log them.
+# WAITARR_JELLYFIN_SUSPEND_TASKS
+# suspend_tasks = true
+# The tasks, by key (Dashboard > Scheduled Tasks lists them by name).
+# WAITARR_JELLYFIN_TASKS, comma separated. A key Jellyfin does not list is
+# warned about, never an error.
+# tasks = ["RefreshLibrary", "TaskExtractMediaSegments",
+#          "RefreshChapterImages", "RefreshTrickplayImages"]
 
 [[targets]]
 name = "main"

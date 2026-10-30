@@ -25,6 +25,7 @@ from waitarr.core.units import parse_duration, parse_rate
 
 __all__ = [
     "DEFAULT_CONFIG_PATH",
+    "DEFAULT_TASKS",
     "AppConfig",
     "ConfigError",
     "HttpConfig",
@@ -37,6 +38,14 @@ __all__ = [
 ]
 
 DEFAULT_CONFIG_PATH = Path("waitarr.toml")
+# The Jellyfin scheduled tasks (by `Key`) that read the whole library from
+# disk: held while something plays unless a source lists others.
+DEFAULT_TASKS = (
+    "RefreshLibrary",
+    "TaskExtractMediaSegments",
+    "RefreshChapterImages",
+    "RefreshTrickplayImages",
+)
 DEFAULT_HTTP_PORT = 8778
 
 _NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
@@ -63,6 +72,8 @@ class SourceConfig:
     url: str
     api_key: str = field(repr=False)
     timeout: float = 10.0
+    suspend_tasks: bool = True
+    tasks: tuple[str, ...] = DEFAULT_TASKS
 
 
 @dataclass(frozen=True)
@@ -346,7 +357,17 @@ def _jellyfin(reader: _Reader, entry: Mapping[str, Any]) -> SourceConfig:
     name = entry["name"]
     where = f"source '{name}'"
     reader.unknown(
-        where, entry, {"name", "type", "url", "api_key_file", "timeout"}
+        where,
+        entry,
+        {
+            "name",
+            "type",
+            "url",
+            "api_key_file",
+            "timeout",
+            "suspend_tasks",
+            "tasks",
+        },
     )
     api_key = reader.secret(name, "api_key", entry)
     if api_key is None:
@@ -360,7 +381,42 @@ def _jellyfin(reader: _Reader, entry: Mapping[str, Any]) -> SourceConfig:
         url=_url(reader, where, entry.get("url")),
         api_key=api_key or "",
         timeout=_timeout(reader, where, entry.get("timeout", 10)),
+        suspend_tasks=_suspend_tasks(reader, where, name, entry),
+        tasks=_task_keys(reader, where, name, entry),
     )
+
+
+def _suspend_tasks(
+    reader: _Reader, where: str, name: str, entry: Mapping[str, Any]
+) -> bool:
+    variable = env_name(name, "suspend_tasks")
+    value = _flag(
+        reader.environ.get(variable), entry.get("suspend_tasks", True)
+    )
+    if not isinstance(value, bool):
+        reader.fail(
+            f"{where}: suspend_tasks must be true or false ({variable})"
+        )
+        return True
+    return value
+
+
+def _task_keys(
+    reader: _Reader, where: str, name: str, entry: Mapping[str, Any]
+) -> tuple[str, ...]:
+    """The tasks to hold: `WAITARR_<NAME>_TASKS` (comma separated), then
+    the file, then the four defaults. A key is repeated at most once."""
+    variable = env_name(name, "tasks")
+    if variable in reader.environ:
+        listed = [k.strip() for k in reader.environ[variable].split(",")]
+    elif "tasks" in entry:
+        listed = reader.string_list(f"{where}: tasks", entry["tasks"])
+        if any(not k.strip() for k in listed):
+            reader.fail(f"{where}: tasks must not hold an empty key")
+        listed = [k.strip() for k in listed]
+    else:
+        return DEFAULT_TASKS
+    return tuple(dict.fromkeys(k for k in listed if k))
 
 
 def _qbittorrent(
