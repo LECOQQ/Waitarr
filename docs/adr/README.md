@@ -18,3 +18,4 @@ superseded record stays, marked as such, and names its successor.
 | [0011](0011-image-distribution.md) | The image is built by CI, published only from a release |
 | [0012](0012-active-by-default.md) | Active by default, observation on demand |
 | [0014](0014-no-anticipation-from-sessions.md) | No throttle ahead of playback from Jellyfin sessions |
+| [0015](0015-downloads-throttled-like-seeds.md) | Downloading torrents are throttled like seeding ones, not stopped |
