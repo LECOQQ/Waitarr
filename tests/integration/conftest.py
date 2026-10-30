@@ -21,12 +21,14 @@ from tests.fakes import (
     RecordingNotifier,
 )
 from tests.integration import qbit_container
-from waitarr.adapters.jellyfin import JellyfinSource
+from waitarr.adapters.jellyfin import JellyfinSource, JellyfinTasks
 from waitarr.adapters.qbittorrent import QbittorrentTarget
 from waitarr.adapters.state_file import JsonStateFile
-from waitarr.core.engine import Engine, TargetBinding
+from waitarr.core.engine import Engine, TargetBinding, TaskBinding
 from waitarr.core.model import Limits
 from waitarr.core.policy import GlobalHysteresisPolicy
+
+TASKS = ("RefreshLibrary", "TaskExtractMediaSegments")
 
 API_KEY = "it-jellyfin-key"
 THROTTLE = Limits(8 * 1024, 16 * 1024)
@@ -135,6 +137,13 @@ class Rig:
         self.source = JellyfinSource(
             "jellyfin", jellyfin.url, API_KEY, timeout=2
         )
+        self.tasks = JellyfinTasks(
+            "jellyfin",
+            jellyfin.url,
+            API_KEY,
+            read_only=simulate,
+            timeout=2,
+        )
         self.target = QbittorrentTarget(
             "main",
             QbitConfig(
@@ -148,12 +157,14 @@ class Rig:
         self.engine = Engine(
             sources=[self.source],
             targets=[TargetBinding(self.target, THROTTLE)],
+            task_hosts=[TaskBinding(self.tasks, TASKS)],
             policy=GlobalHysteresisPolicy(release_after=RELEASE_AFTER),
             store=JsonStateFile(state_path),
             notifier=self.notifier,
             heartbeat=self.heartbeat,
             simulate=simulate,
             clock=self.clock,
+            sleep=self.clock.advance,
         )
         self.engine.load()
 
