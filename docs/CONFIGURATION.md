@@ -165,8 +165,9 @@ throttle. It never changes these settings itself.
 | notice | *Apply rate limit to peers on LAN* unchecked: a peer on the local network still reads the disk at full speed | same place, *Apply rate limit to peers on LAN* |
 | warning | The speed scheduler is enabled: it flips the same switch | *Options > Speed > Alternative Rate Limits* > *Schedule the use of alternative rate limits* |
 
-The findings are logged and listed under `warnings` in `GET /healthz`;
-they do not change its status code.
+The findings are listed under `warnings` in `GET /healthz`; they do not
+change its status code. The log says each one when it first appears, and
+again when it no longer applies, not at every hourly check.
 
 ## 🧾 Exit codes
 
