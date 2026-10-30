@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from waitarr.config import ConfigError, Mode, load_config
+from waitarr.config import DEFAULT_TASKS, ConfigError, Mode, load_config
 from waitarr.core.model import Limits
 
 EXAMPLE = Path(__file__).parents[2] / "config" / "waitarr.example.toml"
@@ -508,3 +508,118 @@ def test_filters_fall_back_to_the_file_when_the_variable_is_blank(tmp_path):
 def test_an_invalid_count_paused_variable_is_refused(tmp_path):
     found = problems(tmp_path, environ={"WAITARR_COUNT_PAUSED": "maybe"})
     assert mentions(found, "count_paused", "WAITARR_COUNT_PAUSED")
+
+
+def test_a_source_suspends_the_four_default_tasks_unless_told_otherwise(
+    tmp_path,
+):
+    source = load(tmp_path).sources[0]
+    assert source.suspend_tasks is True
+    assert source.tasks == (
+        "RefreshLibrary",
+        "TaskExtractMediaSegments",
+        "RefreshChapterImages",
+        "RefreshTrickplayImages",
+    )
+    assert source.tasks == DEFAULT_TASKS
+
+
+SOURCE_WITH_TASKS = MINIMAL.replace(
+    'url = "http://jellyfin:8096"\n',
+    'url = "http://jellyfin:8096"\n'
+    "suspend_tasks = false\n"
+    'tasks = ["RefreshLibrary", "PluginTask"]\n',
+    1,
+)
+
+
+def test_the_file_sets_suspend_tasks_and_the_task_keys(tmp_path):
+    source = load(tmp_path, SOURCE_WITH_TASKS).sources[0]
+    assert source.suspend_tasks is False
+    assert source.tasks == ("RefreshLibrary", "PluginTask")
+
+
+def test_the_environment_wins_over_the_file_for_the_task_options(tmp_path):
+    source = load(
+        tmp_path,
+        SOURCE_WITH_TASKS,
+        {
+            "WAITARR_JELLYFIN_SUSPEND_TASKS": "true",
+            "WAITARR_JELLYFIN_TASKS": " RefreshChapterImages, ,Other ",
+        },
+    ).sources[0]
+    assert source.suspend_tasks is True
+    assert source.tasks == ("RefreshChapterImages", "Other")
+
+
+def test_an_empty_task_list_in_the_file_tracks_nothing(tmp_path):
+    text = MINIMAL.replace(
+        'url = "http://jellyfin:8096"\n',
+        'url = "http://jellyfin:8096"\ntasks = []\n',
+        1,
+    )
+    assert load(tmp_path, text).sources[0].tasks == ()
+
+
+def test_the_task_options_of_a_source_use_its_own_name(tmp_path):
+    text = MINIMAL.replace('name = "jellyfin"', 'name = "jelly-fin"')
+    source = load(
+        tmp_path,
+        text,
+        {
+            "WAITARR_JELLY_FIN_API_KEY": "k",
+            "WAITARR_JELLY_FIN_SUSPEND_TASKS": "no",
+            "WAITARR_JELLY_FIN_TASKS": "RefreshLibrary",
+        },
+    ).sources[0]
+    assert (source.suspend_tasks, source.tasks) == (False, ("RefreshLibrary",))
+
+
+def test_the_task_variables_of_another_source_are_ignored(tmp_path):
+    source = load(tmp_path, environ={"WAITARR_OTHER_TASKS": "X"}).sources[0]
+    assert source.tasks == DEFAULT_TASKS
+
+
+@pytest.mark.parametrize("value", ["maybe", "2"])
+def test_a_suspend_tasks_that_is_not_a_boolean_is_refused(tmp_path, value):
+    found = problems(
+        tmp_path, environ={"WAITARR_JELLYFIN_SUSPEND_TASKS": value}
+    )
+    assert mentions(found, "suspend_tasks", "WAITARR_JELLYFIN_SUSPEND_TASKS")
+
+
+def test_a_suspend_tasks_of_the_wrong_type_in_the_file_is_refused(tmp_path):
+    text = MINIMAL.replace(
+        'url = "http://jellyfin:8096"\n',
+        'url = "http://jellyfin:8096"\nsuspend_tasks = "no"\n',
+        1,
+    )
+    assert mentions(problems(tmp_path, text), "suspend_tasks")
+
+
+@pytest.mark.parametrize(
+    "value", ['"RefreshLibrary"', "[1]", '[""]', '["a", " "]']
+)
+def test_task_keys_that_are_not_a_list_of_names_are_refused(tmp_path, value):
+    text = MINIMAL.replace(
+        'url = "http://jellyfin:8096"\n',
+        f'url = "http://jellyfin:8096"\ntasks = {value}\n',
+        1,
+    )
+    assert mentions(problems(tmp_path, text), "tasks")
+
+
+def test_a_repeated_task_key_counts_once(tmp_path):
+    source = load(
+        tmp_path, environ={"WAITARR_JELLYFIN_TASKS": "A,B,A"}
+    ).sources[0]
+    assert source.tasks == ("A", "B")
+
+
+def test_a_misspelt_task_option_is_still_an_unknown_key(tmp_path):
+    text = MINIMAL.replace(
+        'url = "http://jellyfin:8096"\n',
+        'url = "http://jellyfin:8096"\nsuspend_task = false\n',
+        1,
+    )
+    assert mentions(problems(tmp_path, text), "suspend_task", "unknown key")

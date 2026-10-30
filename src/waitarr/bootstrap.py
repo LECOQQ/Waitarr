@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from qbit_core import QbitConfig
 
-from waitarr.adapters.jellyfin import JellyfinSource
+from waitarr.adapters.jellyfin import JellyfinSource, JellyfinTasks
 from waitarr.adapters.notify import (
     FanOutNotifier,
     HealthchecksHeartbeat,
@@ -19,18 +19,20 @@ from waitarr.adapters.notify import (
 from waitarr.adapters.qbittorrent import QbittorrentTarget
 from waitarr.adapters.state_file import JsonStateFile
 from waitarr.config import AppConfig, Mode, SourceConfig, TargetConfig
-from waitarr.core.engine import Engine, TargetBinding
+from waitarr.core.engine import Engine, TargetBinding, TaskBinding
 from waitarr.core.policy import GlobalHysteresisPolicy, ThrottlePolicy
 from waitarr.core.ports import (
     ActivitySource,
     Heartbeat,
     Notifier,
+    TaskHost,
     ThrottleTarget,
 )
 
 __all__ = [
     "SOURCE_FACTORIES",
     "TARGET_FACTORIES",
+    "TASK_HOST_FACTORIES",
     "build_engine",
 ]
 
@@ -46,6 +48,15 @@ TARGET_FACTORIES: dict[str, Callable[[TargetConfig, bool], ThrottleTarget]] = {
         QbitConfig(host=c.url, username=c.username, password=c.password),
         read_only=read_only,
         timeout=c.timeout,
+    ),
+}
+
+
+# A source type that also hosts scheduled tasks. Built read-only in
+# observation mode, like a target.
+TASK_HOST_FACTORIES: dict[str, Callable[[SourceConfig, bool], TaskHost]] = {
+    "jellyfin": lambda c, read_only: JellyfinTasks(
+        c.name, c.url, c.api_key, read_only=read_only, timeout=c.timeout
     ),
 }
 
@@ -78,14 +89,23 @@ def build_heartbeat(config: AppConfig) -> Heartbeat:
 
 
 def build_engine(config: AppConfig, *, simulate: bool | None = None) -> Engine:
-    """Build the engine. In observation mode every target is built
-    read-only, so no code path below can reach a qBittorrent write."""
+    """Build the engine. In observation mode every target and task host
+    is built read-only, so no code path below can reach a write."""
     observe = config.mode is Mode.OBSERVE if simulate is None else simulate
     return Engine(
         sources=[SOURCE_FACTORIES[s.type](s) for s in config.sources],
         targets=[
             TargetBinding(TARGET_FACTORIES[t.type](t, observe), t.throttle)
             for t in config.targets
+        ],
+        task_hosts=[
+            TaskBinding(
+                TASK_HOST_FACTORIES[s.type](s, observe),
+                s.tasks,
+                s.suspend_tasks,
+            )
+            for s in config.sources
+            if s.type in TASK_HOST_FACTORIES
         ],
         policy=build_policy(config),
         store=JsonStateFile(config.state_file),
