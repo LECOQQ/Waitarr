@@ -8,13 +8,14 @@ from tests.fakes import (
     FakeClock,
     FakeSource,
     FakeTarget,
+    FakeTaskHost,
     MemoryStore,
     RecordingHeartbeat,
     RecordingNotifier,
     playback,
 )
 from waitarr.adapters.http import HttpSurface, status_document
-from waitarr.core.engine import Engine, TargetBinding
+from waitarr.core.engine import Engine, TargetBinding, TaskBinding
 from waitarr.core.policy import GlobalHysteresisPolicy
 
 STALE_AFTER = timedelta(seconds=45)
@@ -25,10 +26,12 @@ class Rig:
         self.clock = FakeClock()
         self.source = FakeSource()
         self.target = FakeTarget("main")
+        self.tasks = FakeTaskHost("jellyfin", keys=("RefreshLibrary", "Other"))
         self.woken = 0
         self.engine = Engine(
             sources=[self.source],
             targets=[TargetBinding(self.target, THROTTLE)],
+            task_hosts=[TaskBinding(self.tasks, ("RefreshLibrary", "Other"))],
             policy=GlobalHysteresisPolicy(release_after=timedelta(minutes=3)),
             store=MemoryStore(),
             notifier=RecordingNotifier(),
@@ -273,3 +276,38 @@ def test_health_lists_the_warnings_found_at_the_last_check(make_rig):
             "message": "main: µTP traffic is not rate-limited",
         }
     ]
+
+
+def test_health_shows_no_task_when_waitarr_owns_none(make_rig):
+    rig = make_rig()
+    rig.tick()
+    body = rig.health().json()
+    assert body["tasks"] == {"jellyfin": {}}
+    assert body["task_errors"] == {}
+
+
+def test_health_lists_the_tasks_waitarr_stopped(make_rig):
+    rig = make_rig()
+    rig.tasks.run("RefreshLibrary")
+    rig.source.sessions = [playback()]
+    rig.tick()
+    body = rig.health().json()
+    assert set(body["tasks"]["jellyfin"]) == {"RefreshLibrary"}
+    stopped = body["tasks"]["jellyfin"]["RefreshLibrary"]
+    assert stopped["ownership"] == "stopped"
+    assert stopped["last_action"] == "stop"
+    assert stopped["last_action_at"].startswith("2026-10-27T")
+    assert stopped["state"] in ("Cancelling", "Idle")
+    assert "progress" in stopped
+
+
+def test_health_names_the_task_host_it_cannot_read_and_stays_200(make_rig):
+    rig = make_rig()
+    rig.source.sessions = [playback()]
+    rig.tasks.down = True
+    rig.tick()
+    response = rig.health()
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert "connection refused" in body["task_errors"]["jellyfin"]

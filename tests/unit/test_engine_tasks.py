@@ -609,3 +609,39 @@ def test_the_status_lists_the_tasks_owned():
     assert shown.ownership is TaskOwnership.STOPPED
     assert shown.last_action is TaskAction.STOP
     assert shown.last_action_at == w.clock.now
+
+
+# -- diagnostics -------------------------------------------------------------
+
+
+def test_a_configured_key_the_host_does_not_list_is_a_warning():
+    w = World(keys=(KEY, "PluginTask"))
+    (found,) = w.engine.diagnose()
+    assert (found.target, found.severity) == ("jellyfin", "warning")
+    assert "PluginTask" in found.message
+    assert KEY not in found.message
+    assert w.engine.status().diagnostics == (found,)
+
+
+def test_listed_keys_give_no_diagnostic():
+    assert World(keys=(KEY, "Other")).engine.diagnose() == []
+
+
+def test_an_unreadable_task_host_is_a_warning_and_never_an_error():
+    w = World()
+    w.host.down = True
+    (found,) = w.engine.diagnose()
+    assert found.severity == "warning"
+    assert "connection refused" in found.message
+    assert w.host.writes == []
+
+
+def test_no_diagnostic_without_a_task_host():
+    assert World(with_host=False).engine.diagnose() == []
+
+
+def test_the_diagnostics_never_write_to_the_host():
+    w = World(keys=(KEY, "PluginTask"))
+    w.host.run(KEY)
+    w.engine.diagnose()
+    assert w.host.writes == []

@@ -406,9 +406,37 @@ class Engine:
                         "and upload.",
                     )
                 )
+        for task_binding in self._task_hosts:
+            found.extend(self._diagnose_tasks(task_binding))
         with self._lock:
             self._runtime.diagnostics = tuple(found)
         return found
+
+    def _diagnose_tasks(self, binding: TaskBinding) -> list[Diagnostic]:
+        """A key the host does not list is a warning, never an error: a
+        plugin may be absent. An unreadable host is one too."""
+        source = binding.host.name
+        try:
+            listed = {task.key for task in binding.host.tasks()}
+        except ServiceUnavailable as error:
+            return [
+                Diagnostic(
+                    source,
+                    "warning",
+                    f"{source}: its scheduled tasks cannot be checked "
+                    f"({error}); none is stopped until they can be read.",
+                )
+            ]
+        return [
+            Diagnostic(
+                source,
+                "warning",
+                f"{source}: the task '{key}' is configured but the host does "
+                "not list it (a plugin may be missing); it is ignored.",
+            )
+            for key in binding.keys
+            if key not in listed
+        ]
 
     def tick(self) -> None:
         now = self._clock()

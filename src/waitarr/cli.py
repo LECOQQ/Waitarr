@@ -16,6 +16,7 @@ from waitarr import __version__
 from waitarr.bootstrap import build_engine
 from waitarr.compatibility import Verdict, assess
 from waitarr.config import AppConfig, ConfigError, Mode, load_config
+from waitarr.core.engine import TaskBinding
 from waitarr.core.ports import ServiceUnavailable
 from waitarr.core.records import StateDocumentError
 from waitarr.core.units import format_rate
@@ -162,10 +163,35 @@ def check(config_path: ConfigOption = None) -> None:
             f"{format_rate(limits.download)} down / "
             f"{format_rate(limits.upload)} up"
         )
+    for binding in engine.task_bindings:
+        _echo_tasks(binding)
     for diagnostic in engine.diagnose():
         mark = "WARN" if diagnostic.severity == "warning" else "NOTE"
         typer.echo(f"[{mark}] {diagnostic.message}")
     raise typer.Exit(EXIT_OK if ok else EXIT_FAILURE)
+
+
+def _echo_tasks(binding: TaskBinding) -> None:
+    """List the followed tasks the host knows. A host that cannot be read,
+    or a key it does not list, is reported by the diagnostics, as a
+    warning."""
+    name = binding.host.name
+    try:
+        listed = {task.key: task for task in binding.host.tasks()}
+    except ServiceUnavailable:
+        return
+    followed = [listed[key] for key in binding.keys if key in listed]
+    role = (
+        "held while something plays"
+        if binding.suspend
+        else "only reported (suspend_tasks is off)"
+    )
+    typer.echo(f"[OK  ] {name}: {len(followed)} scheduled task(s) {role}")
+    for task in followed:
+        last = f", last run {task.last.status}" if task.last else ""
+        typer.echo(
+            f"         {task.key} ({task.name}): {task.state.value}{last}"
+        )
 
 
 @app.command()
@@ -207,13 +233,19 @@ def restore(
     config_path: ConfigOption = None,
     yes: Annotated[
         bool,
-        typer.Option("--yes", help="Confirm: this writes to the targets."),
+        typer.Option(
+            "--yes",
+            help="Confirm: this writes to the targets and the task hosts.",
+        ),
     ] = False,
 ) -> None:
-    """Give back every target a previous active run still owns."""
+    """Give back every target and scheduled task a previous active run
+    still owns."""
     if not yes:
         typer.echo(
-            "restore writes to qBittorrent: re-run with --yes to confirm.",
+            "restore writes to qBittorrent (the speed limits) and to "
+            "Jellyfin (it starts again the tasks Waitarr stopped): re-run "
+            "with --yes to confirm.",
             err=True,
         )
         raise typer.Exit(EXIT_FAILURE)
