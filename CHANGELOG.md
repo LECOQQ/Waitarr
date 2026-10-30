@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.1](https://github.com/LECOQQ/Waitarr/compare/v0.1.0...v0.1.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **sast:** run the engine test from tests/unit without the conftest ([dcb4908](https://github.com/LECOQQ/Waitarr/commit/dcb490849a5337a3869bf24aac947aeeddd5e74c))
+
+
+### Documentation
+
+* **security:** add a security policy ([e53483d](https://github.com/LECOQQ/Waitarr/commit/e53483d2683871a9f46589a2e1171ac493ae52c5))
+
 ## 0.1.0 (2026-10-28)
 
 
