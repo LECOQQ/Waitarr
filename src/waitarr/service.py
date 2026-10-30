@@ -37,6 +37,8 @@ class Service:
             self._http = HttpSurface(
                 host=config.http.host,
                 port=config.http.port,
+                # The rule reads the lambda body as a `return` in __init__.
+                # nosemgrep: return-in-init
                 status=lambda: status_document(
                     engine.status(), now=utc_now(), stale_after=stale
                 ),

@@ -45,6 +45,8 @@ class WebhookNotifier:
     def notify(self, notification: Notification) -> None:
         _deliver(
             "webhook notification",
+            # `_deliver` checks the status; a refusal only warns.
+            # nosemgrep: use-raise-for-status
             lambda: requests.post(
                 self._url,
                 json={
@@ -79,6 +81,8 @@ class NtfyNotifier:
             headers["Authorization"] = f"Bearer {self._token}"
         _deliver(
             "ntfy notification",
+            # `_deliver` checks the status; a refusal only warns.
+            # nosemgrep: use-raise-for-status
             lambda: requests.post(
                 self._url,
                 data=notification.message.encode("utf-8"),
@@ -147,6 +151,8 @@ class HealthchecksHeartbeat:
     def _ping(self, suffix: str, message: str) -> None:
         _deliver(
             "Healthchecks ping",
+            # `_deliver` checks the status; a refusal only warns.
+            # nosemgrep: use-raise-for-status
             lambda: requests.post(
                 self._url + suffix,
                 data=message.encode("utf-8"),

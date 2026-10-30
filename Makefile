@@ -14,7 +14,7 @@ IMAGE ?= waitarr:local
 PLATFORMS ?= linux/amd64,linux/arm64
 
 .PHONY: help doctor info install hooks-install sync run format lint test \
-	test-docker check check-fast check-version check-docs check-ai secrets \
+	test-docker check check-fast check-version check-docs check-ai secrets sast \
 	deps-audit vulns social-preview build check-dist check-image image image-multiarch ci \
 	ci-entrypoint clean
 
@@ -108,6 +108,9 @@ check-ai: ## qa: Enforce commit provenance, no generated artefacts, house style
 GITLEAKS_IMAGE := zricethezav/gitleaks:v8.24.3
 GITLEAKS_SCOPE ?= dir
 GITLEAKS_SOURCE_FLAGS = $(if $(filter dir,$(GITLEAKS_SCOPE)),--no-git,)
+
+sast: ## qa: Scan the code with Semgrep CE (SAST_ENGINE=opengrep for Opengrep; SAST_STRICT=1 fails on findings; needs uv and the network once)
+	@scripts/sast.sh
 
 secrets: ## qa: Scan for committed credentials with gitleaks (GITLEAKS_SCOPE=dir|git)
 	@case "$(GITLEAKS_SCOPE)" in dir|git) ;; \
