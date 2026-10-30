@@ -21,13 +21,16 @@ from waitarr.adapters.state_file import JsonStateFile
 from waitarr.bootstrap import (
     SOURCE_FACTORIES,
     TARGET_FACTORIES,
+    TASK_HOST_FACTORIES,
     build_engine,
     build_notifier,
     build_policy,
 )
 from waitarr.config import load_config
-from waitarr.core.engine import Engine, TargetBinding
+from waitarr.core.engine import Engine, TargetBinding, TaskBinding
+from waitarr.core.model import TaskState
 from waitarr.core.reconcile import Ownership
+from waitarr.core.tasks import TaskOwnership
 
 pytestmark = pytest.mark.docker
 
@@ -184,7 +187,9 @@ def test_an_unreachable_qbittorrent_changes_nothing_and_breaks_nothing(
 
 
 class Spy:
-    """Records every HTTP request `requests` makes, by method and URL."""
+    """Records every HTTP request `requests` makes, by method and URL,
+    whatever the service: qBittorrent and Jellyfin (sessions and tasks)
+    both go through `requests.Session`."""
 
     def __init__(self, monkeypatch):
         self.calls: list[tuple[str, str]] = []
@@ -245,6 +250,12 @@ username = "{qbit.username}"
             TargetBinding(TARGET_FACTORIES[t.type](t, True), t.throttle)
             for t in config.targets
         ],
+        task_hosts=[
+            TaskBinding(
+                TASK_HOST_FACTORIES[s.type](s, True), s.tasks, s.suspend_tasks
+            )
+            for s in config.sources
+        ],
         policy=build_policy(config),
         store=JsonStateFile(config.state_file),
         notifier=build_notifier(config),
@@ -253,6 +264,7 @@ username = "{qbit.username}"
         clock=clock,
     )
     before = Snapshot.take(admin)
+    jellyfin.run_task("RefreshLibrary")  # a task the active mode would stop
     spy = Spy(monkeypatch)
 
     engine.load()
@@ -283,6 +295,80 @@ username = "{qbit.username}"
     )
     assert Snapshot.take(admin) == before
     assert not state_file.exists()
+
+    to_jellyfin = spy.to(urlsplit(jellyfin.url).port)
+    assert any(
+        c[0] == "GET" and urlsplit(c[1]).path == "/ScheduledTasks"
+        for c in to_jellyfin
+    ), "the spy saw no read of the tasks: it would prove nothing"
+    assert [c for c in to_jellyfin if c[0] != "GET"] == []
+    assert jellyfin.writes == []
+    assert jellyfin.tasks["RefreshLibrary"].state == "Running"
+
+
+def test_a_playback_stops_a_running_task_and_the_end_of_the_hold_runs_it_again(
+    admin, jellyfin, make_rig
+):
+    rig = make_rig()
+    jellyfin.run_task("RefreshLibrary", progress=40.0)
+    ran = jellyfin.tasks["RefreshLibrary"].current
+    jellyfin.sessions = [session()]
+    rig.tick()
+    assert Snapshot.take(admin).throttled
+    assert [m for m, _ in jellyfin.writes] == ["DELETE"]
+    owned = rig.engine.status().tasks["jellyfin"]["RefreshLibrary"]
+    assert owned.ownership is TaskOwnership.STOPPED
+    rig.tick()  # the stopped task is Cancelling, then idle: nothing sent
+    rig.tick()
+    stopped = jellyfin.tasks["RefreshLibrary"]
+    assert stopped.state == "Idle"
+    assert stopped.last == (ran, "Cancelled")
+    assert [m for m, _ in jellyfin.writes] == ["DELETE"]
+    assert jellyfin.tasks["TaskExtractMediaSegments"].state == "Idle"
+    jellyfin.sessions = []
+    rig.tick(60)
+    assert [m for m, _ in jellyfin.writes] == ["DELETE"]  # still held
+    rig.tick(AFTER_DELAY)
+    assert [m for m, _ in jellyfin.writes] == ["DELETE", "POST"]
+    started = jellyfin.tasks["RefreshLibrary"]
+    assert (started.state, started.progress) == ("Running", 0.0)
+    assert not Snapshot.take(admin).throttled
+    rig.tick()
+    assert rig.engine.status().tasks["jellyfin"] == {}
+    assert [m for m, _ in jellyfin.writes] == ["DELETE", "POST"]
+
+
+def test_a_task_run_by_a_human_after_the_stop_is_left_alone(
+    admin, jellyfin, make_rig
+):
+    rig = make_rig()
+    jellyfin.run_task("RefreshLibrary")
+    jellyfin.sessions = [session()]
+    rig.tick()
+    rig.tick()
+    assert jellyfin.tasks["RefreshLibrary"].state == "Idle"
+    jellyfin.run_task("RefreshLibrary", progress=5.0)  # a human restarts it
+    rig.tick()
+    owned = rig.engine.status().tasks["jellyfin"]["RefreshLibrary"]
+    assert owned.ownership is TaskOwnership.YIELDED
+    assert jellyfin.tasks["RefreshLibrary"].state == "Running"
+    jellyfin.sessions = []
+    rig.tick(AFTER_DELAY)
+    rig.tick()
+    assert [m for m, _ in jellyfin.writes] == ["DELETE"]
+    assert rig.engine.status().tasks["jellyfin"] == {}
+
+
+def test_shutdown_restore_starts_again_the_task_it_stopped(
+    admin, jellyfin, make_rig
+):
+    rig = make_rig()
+    jellyfin.run_task("RefreshLibrary")
+    jellyfin.sessions = [session()]
+    rig.tick()
+    assert rig.engine.restore_all()
+    assert jellyfin.tasks["RefreshLibrary"].state == TaskState.RUNNING.value
+    assert not Snapshot.take(admin).throttled
 
 
 class RecordingHeartbeatStub:
