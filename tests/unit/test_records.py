@@ -11,6 +11,7 @@ from waitarr.core.records import (
     decode_state,
     encode_state,
 )
+from waitarr.core.tasks import TaskOwnership, TaskRecord, TaskWrite
 
 OFF = TargetState(False, Limits(0, 512 * 1024))
 HELD = TargetState(True, Limits(1024, 1024))
@@ -55,7 +56,7 @@ def test_an_empty_document_decodes_to_nothing_owned():
     assert decode_state({}) == StateDocument()
 
 
-@pytest.mark.parametrize("version", [0, 2, "1", None])
+@pytest.mark.parametrize("version", [0, 3, "2", True, [], None])
 def test_an_unknown_schema_version_is_refused(version):
     with pytest.raises(StateDocumentError, match="schema_version"):
         decode_state({"schema_version": version, "targets": {}})
@@ -103,4 +104,129 @@ def test_a_bad_timestamp_is_refused():
         "targets": {"main": {"last_activity_at": "yesterday-ish"}},
     }
     with pytest.raises(StateDocumentError, match="last_activity_at"):
+        decode_state(raw)
+
+
+STOPPED = TaskRecord(
+    TaskOwnership.STOPPED,
+    cancelled_start="2026-10-30T21:25:06.0000000Z",
+    pending=TaskWrite.START,
+    pending_from="2026-10-30T21:25:06.0000000Z",
+)
+
+
+def test_task_records_survive_an_encode_decode_round_trip():
+    document = StateDocument(
+        records={"main": TargetRecord()},
+        memory={"main": SEEN},
+        tasks={
+            "jellyfin": {
+                "RefreshLibrary": STOPPED,
+                "RefreshChapterImages": TaskRecord(TaskOwnership.YIELDED),
+                # A task that never ran has the identity None.
+                "TaskExtractMediaSegments": TaskRecord(
+                    TaskOwnership.STOPPED,
+                    pending=TaskWrite.STOP,
+                    pending_from=None,
+                ),
+            }
+        },
+        task_memory={"jellyfin": SEEN},
+    )
+    assert decode_state(encode_state(document)) == document
+
+
+def test_task_memory_without_a_record_is_kept_apart_from_the_targets():
+    # A task source and a target may share a name.
+    document = StateDocument(
+        memory={"jellyfin": SEEN}, task_memory={"jellyfin": SEEN}
+    )
+    encoded = encode_state(document)
+    assert encoded["tasks"] == {
+        "jellyfin": {"last_activity_at": SEEN.isoformat(), "records": {}}
+    }
+    decoded = decode_state(encoded)
+    assert decoded.task_memory == {"jellyfin": SEEN}
+    assert decoded.tasks == {"jellyfin": {}}
+
+
+def test_an_idle_task_record_is_not_persisted():
+    idle = {"RefreshLibrary": TaskRecord()}
+    document = StateDocument(tasks={"jellyfin": idle})
+    encoded = encode_state(document)
+    assert encoded["tasks"] == {
+        "jellyfin": {"last_activity_at": None, "records": {}}
+    }
+
+
+def test_a_version_1_file_is_read_as_owning_no_task():
+    raw = {
+        "schema_version": 1,
+        "targets": {
+            "main": {
+                "ownership": "engaged",
+                "before": {
+                    "throttled": False,
+                    "download_limit": 0,
+                    "upload_limit": 0,
+                },
+                "applied": {
+                    "throttled": True,
+                    "download_limit": 1024,
+                    "upload_limit": 1024,
+                },
+                "last_activity_at": SEEN.isoformat(),
+            }
+        },
+    }
+    decoded = decode_state(raw)
+    assert decoded.records["main"].ownership is Ownership.ENGAGED
+    assert decoded.memory == {"main": SEEN}
+    assert decoded.tasks == {}
+    assert decoded.task_memory == {}
+
+
+def test_a_version_1_file_with_tasks_is_refused():
+    raw = {"schema_version": 1, "targets": {}, "tasks": {"jellyfin": {}}}
+    with pytest.raises(StateDocumentError, match="version 1"):
+        decode_state(raw)
+
+
+def _task_document(entry):
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "targets": {},
+        "tasks": {"jellyfin": {"records": {"RefreshLibrary": entry}}},
+    }
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        {"ownership": "borrowed"},
+        {"ownership": "stopped", "pending": "pause"},
+        {"ownership": "yielded", "pending": "stop"},
+        {"ownership": "idle", "pending": "start"},
+        {"ownership": "stopped", "cancelled_start": 12},
+        {"ownership": "stopped", "pending": "stop", "pending_from": []},
+        "stopped",
+    ],
+)
+def test_a_malformed_task_record_is_refused(entry):
+    with pytest.raises(StateDocumentError):
+        decode_state(_task_document(entry))
+
+
+@pytest.mark.parametrize(
+    "section",
+    [
+        [],
+        {"jellyfin": []},
+        {"jellyfin": {"records": []}},
+        {"jellyfin": {"last_activity_at": "yesterday-ish"}},
+    ],
+)
+def test_a_malformed_tasks_section_is_refused(section):
+    raw = {"schema_version": SCHEMA_VERSION, "targets": {}, "tasks": section}
+    with pytest.raises(StateDocumentError):
         decode_state(raw)
