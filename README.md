@@ -70,7 +70,7 @@ Copy this into a `docker-compose.yml` and set the two URLs:
 ```yaml
 services:
   waitarr:
-    image: ghcr.io/lecoqq/waitarr:0.1.1 # x-release-please-version
+    image: ghcr.io/lecoqq/waitarr:0.2.0 # x-release-please-version
     restart: unless-stopped
     environment:
       TZ: Europe/Paris
