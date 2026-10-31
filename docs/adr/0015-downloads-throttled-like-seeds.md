@@ -37,8 +37,10 @@ human's) for that.
 
 - Nothing changes for users; Waitarr still only changes speed limits.
 - What the limits do not cover stays outside Waitarr: the first
-  minute after the throttle starts, a recheck, a file moved when a
-  download completes, and pre-allocation. On a share without
-  `fallocate` (NFS before 4.2), pre-allocation may write a file's whole
-  size at its first write, whatever the limits; this was not measured
-  and is the next thing to measure before acting on it.
+  minute after the throttle starts, a recheck, and a file moved when a
+  download completes. Where downloads in progress should live:
+  [ADR 0016](0016-downloads-off-the-media-disk.md).
+- Pre-allocation is not among them where `fallocate` works: on a real
+  NFS 4.2 share, allocating 2 GB took 0.56 s and reserved the blocks
+  without writing them. On a share without it (NFS before 4.2),
+  pre-allocation may still write a file's whole size; not measured.
