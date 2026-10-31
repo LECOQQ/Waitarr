@@ -193,6 +193,12 @@ named `seedbox-2` reads `WAITARR_SEEDBOX_2_PASSWORD`.
 
 ## 🩺 Startup checks
 
+At startup, Waitarr logs one block: its version and mode, the polling
+interval and release delay, the health endpoint, the active playback
+filters, then each source and target with its URL (without credentials),
+its detected version and compatibility verdict, and the Jellyfin tasks it
+follows. It never logs a secret.
+
 At startup, every hour, and in `waitarr check`, Waitarr reads each
 qBittorrent's preferences and reports what lets traffic escape the
 throttle. It never changes these settings itself.

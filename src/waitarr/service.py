@@ -6,21 +6,20 @@ import logging
 import signal
 import threading
 import time
+from collections.abc import Mapping
 from types import FrameType
 
 from waitarr.adapters.http import HttpSurface, status_document
-from waitarr.compatibility import Verdict, assess
+from waitarr.banner import compatibility_warnings, startup_block
 from waitarr.config import AppConfig
 from waitarr.core.engine import Engine, utc_now
-from waitarr.core.model import Diagnostic
+from waitarr.core.model import Diagnostic, ServiceVersion
 from waitarr.core.ports import WriteRefused
-from waitarr.core.units import format_duration
 
 __all__ = ["Service"]
 
 logger = logging.getLogger("waitarr")
 
-_KINDS = {"source": "jellyfin", "target": "qbittorrent"}
 # Settings can be fixed while Waitarr runs: look again every hour, and
 # log only what changed since the last look.
 _DIAGNOSE_EVERY = 3600.0
@@ -59,21 +58,12 @@ class Service:
 
     def run(self) -> int:
         self._install_signal_handlers()
-        self._announce()
         self._engine.load()
-        self._check_compatibility()
+        versions = self._engine.check_versions()
         if self._http is not None:
             self._http.start()
-            logger.info(
-                "Health endpoint on http://%s:%s/healthz%s.",
-                self._config.http.host,
-                self._http.port,
-                (
-                    " (webhook on /hooks/jellyfin)"
-                    if self._config.http.webhook
-                    else ""
-                ),
-            )
+        self._announce(versions)
+        self._diagnose()
         try:
             while not self._stop.is_set():
                 try:
@@ -100,33 +90,18 @@ class Service:
             logger.info("Stopped.")
         return 0 if restored else 1
 
-    def _announce(self) -> None:
-        mode = (
-            "OBSERVATION mode: decisions are logged, nothing is ever written"
-            if self._engine.simulate
-            else "ACTIVE mode: targets are throttled during playback"
-        )
-        logger.info(
-            "Waitarr starting in %s. Polling every %s, releasing %s after "
-            "the last playback.",
-            mode,
-            format_duration(self._config.poll_interval),
-            format_duration(self._config.policy.release_after),
-        )
-
-    def _check_compatibility(self) -> None:
-        versions = self._engine.check_versions()
-        status = self._engine.status()
-        for name, version in versions.items():
-            kind = _KINDS[status.services[name].kind]
-            assessment = assess(kind, version)
-            log = (
-                logger.info
-                if assessment.verdict is Verdict.TESTED
-                else logger.warning
-            )
-            log("%s: %s.", name, assessment.message)
-        self._diagnose()
+    def _announce(self, versions: Mapping[str, ServiceVersion | None]) -> None:
+        """Log the startup block, then a warning per untested version."""
+        port = self._http.port if self._http is not None else None
+        for line in startup_block(
+            self._config,
+            versions,
+            simulate=self._engine.simulate,
+            http_port=port,
+        ):
+            logger.info("%s", line)
+        for line in compatibility_warnings(self._config, versions):
+            logger.warning("%s", line)
 
     def _diagnose(self) -> None:
         self._last_diagnosis = time.monotonic()
