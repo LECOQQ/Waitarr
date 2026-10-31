@@ -325,3 +325,18 @@ def test_restore_forgets_a_yielded_task_and_waits_for_a_cancel():
     waiting = restore_task(stopping(), task(TaskState.CANCELLING))
     assert waiting.action is TaskAction.WAIT
     assert waiting.record == stopping()
+
+
+@pytest.mark.parametrize("hold", [True, False])
+def test_a_yielded_task_being_cancelled_by_someone_else_is_not_waited_for(
+    hold,
+):
+    result = step(YIELDED, task(TaskState.CANCELLING), hold=hold)
+    assert result.action is not TaskAction.WAIT
+    assert result.write is None
+
+
+def test_restore_forgets_a_yielded_task_even_while_it_is_cancelling():
+    result = restore_task(YIELDED, task(TaskState.CANCELLING))
+    assert result.action is TaskAction.FORGET
+    assert result.record == TaskRecord()
