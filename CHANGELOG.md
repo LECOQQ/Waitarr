@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.2.0](https://github.com/LECOQQ/Waitarr/compare/v0.1.1...v0.2.0) (2026-10-31)
+
+
+### Features
+
+* **config:** suspend_tasks and tasks per Jellyfin source ([d10c603](https://github.com/LECOQQ/Waitarr/commit/d10c60305db4a968afa107e8bc7f9a41aa1b0a53))
+* **core:** add the pure task ownership machine ([ce48d1a](https://github.com/LECOQQ/Waitarr/commit/ce48d1a95e4b65b61014a8c86f1cda570bf69e1d))
+* **core:** model scheduled tasks and the TaskHost port ([1d5d2fa](https://github.com/LECOQQ/Waitarr/commit/1d5d2fa5d243d8e8e50538ae0d80334720aab2fd))
+* **core:** read and write state schema 2 with a tasks section ([ac5244e](https://github.com/LECOQQ/Waitarr/commit/ac5244e910747595d4fba83186d89b1aafd7ea13))
+* **engine:** suspend listed tasks during the hold and restore them ([8b94319](https://github.com/LECOQQ/Waitarr/commit/8b9431943184800978b0f033503462a4bde15c84))
+* **jellyfin:** read, stop and start scheduled tasks ([74b54fa](https://github.com/LECOQQ/Waitarr/commit/74b54fa6a74a67a9b972de67d7b91bc51a3c130e))
+* **service:** log one startup block with the configuration and versions ([8d4a9fc](https://github.com/LECOQQ/Waitarr/commit/8d4a9fc9e3e50b8ba8080ac6a495881c59cde498))
+* **service:** name the version when the start fails ([8efc5b0](https://github.com/LECOQQ/Waitarr/commit/8efc5b0b4a39c411c71d7e81985e768baf6dd467))
+* **status:** show owned tasks in healthz, check and restore ([235cb88](https://github.com/LECOQQ/Waitarr/commit/235cb88ee3691d4e7a2b02b38914d10dbf56e947))
+
+
+### Bug Fixes
+
+* **engine:** clear the task error once any read of the tasks succeeds ([7ec6386](https://github.com/LECOQQ/Waitarr/commit/7ec6386038875a981751bab400d0b06343081551))
+* **engine:** do not wait for a yielded task to finish cancelling ([1f8794d](https://github.com/LECOQQ/Waitarr/commit/1f8794d1dda6bac4f94c83a3207fbac75998004d))
+* **engine:** mark the forget lines of a task with [observe] in observation ([4009113](https://github.com/LECOQQ/Waitarr/commit/400911330b4c928e2683facfc9705d005c0a1cc1))
+* **service:** log a diagnostic when it appears or goes, not every hour ([0053c1d](https://github.com/LECOQQ/Waitarr/commit/0053c1d1e0760b8d9afe2b812d4e885b4a923eca))
+
+
+### Documentation
+
+* **adr:** recommend keeping downloads in progress off the media disk ([67a9331](https://github.com/LECOQQ/Waitarr/commit/67a93311ec81b03abf2c0ef237b76a0b593c6e6d))
+* **adr:** record that pre-allocation costs nothing on NFS 4.2 ([be378a8](https://github.com/LECOQQ/Waitarr/commit/be378a89b03103fd353026ba63d720a64918d5a4))
+* **adr:** record the crash and race resolution of 0013 ([95cc089](https://github.com/LECOQQ/Waitarr/commit/95cc0895fd4da65fd41b3aaa64de31bcdae20b58))
+* **adr:** record why downloads are throttled like seeds ([98d00bb](https://github.com/LECOQQ/Waitarr/commit/98d00bb9f861082e6ac3ae28aa6bf2ac68ec3a8f))
+* **adr:** record why no throttle is taken ahead of playback ([03c6bc7](https://github.com/LECOQQ/Waitarr/commit/03c6bc72da203a1652039273fa64fa4077bccd1c))
+* document task suspension and ADR 0013 ([5787165](https://github.com/LECOQQ/Waitarr/commit/5787165cd88d9c492932f0b3c6bc471527f66720))
+* word the release and merge rules impersonally ([95a1099](https://github.com/LECOQQ/Waitarr/commit/95a1099ac0dfc31ed0ddd8a1bfb124531b9f3ac2))
+
 ## [0.1.1](https://github.com/LECOQQ/Waitarr/compare/v0.1.0...v0.1.1) (2026-10-30)
 
 
