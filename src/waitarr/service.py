@@ -9,6 +9,7 @@ import time
 from collections.abc import Mapping
 from types import FrameType
 
+from waitarr import __version__
 from waitarr.adapters.http import HttpSurface, status_document
 from waitarr.banner import compatibility_warnings, startup_block
 from waitarr.config import AppConfig
@@ -58,7 +59,16 @@ class Service:
 
     def run(self) -> int:
         self._install_signal_handlers()
-        self._engine.load()
+        try:
+            self._engine.load()
+        except Exception:
+            # Without the block, a bug report would not say which version.
+            logger.error(
+                "Waitarr %s could not start (%s mode).",
+                __version__,
+                "OBSERVATION" if self._engine.simulate else "ACTIVE",
+            )
+            raise
         versions = self._engine.check_versions()
         if self._http is not None:
             self._http.start()
