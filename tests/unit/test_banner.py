@@ -1,6 +1,8 @@
 import dataclasses
 import logging
 
+import pytest
+
 from tests.unit.test_config import MINIMAL, load
 from waitarr import __version__
 from waitarr.banner import compatibility_warnings, plain_url, startup_block
@@ -190,3 +192,23 @@ def test_the_service_logs_the_block_then_the_warnings(tmp_path, caplog):
     levels = [r.levelno for r in caplog.records]
     assert levels == [logging.INFO] * 5 + [logging.WARNING]
     assert caplog.records[-1].getMessage().startswith("main: ")
+
+
+class FailingEngine(FakeEngine):
+    simulate = True
+
+    def load(self):
+        raise RuntimeError("state file unreadable")
+
+
+def test_a_failed_load_still_names_the_version(tmp_path, caplog, monkeypatch):
+    config = load(tmp_path, MINIMAL + '\n[http]\nlisten = ""\n')
+    service = Service(config, FailingEngine())  # type: ignore[arg-type]
+    monkeypatch.setattr(service, "_install_signal_handlers", lambda: None)
+    with caplog.at_level(logging.INFO, logger="waitarr"):
+        with pytest.raises(RuntimeError, match="state file unreadable"):
+            service.run()
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1
+    assert __version__ in errors[0].getMessage()
+    assert "OBSERVATION" in errors[0].getMessage()
