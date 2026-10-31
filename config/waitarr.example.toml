@@ -42,7 +42,7 @@ release_after = "3m"
 # case-insensitively.
 users = []            # only these Jellyfin users count
 ignore_users = []     # these never count
-ignore_devices = []   # e.g. ["Kitchen speaker"]
+ignore_devices = []   # e.g. ["device-1"]
 ignore_clients = []   # e.g. ["Jellyfin Media Player"]
 media_types = []      # e.g. ["Movie", "Episode"] to ignore music
 libraries = []        # only these Jellyfin libraries count, by name

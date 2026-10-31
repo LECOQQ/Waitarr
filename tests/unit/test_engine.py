@@ -340,19 +340,19 @@ def test_each_session_change_is_logged_just_before_the_decision(caplog):
     w.tick(600)
     lines = _messages(caplog)
     started = lines.index(
-        'Session: alice started, paused, "Dune" (Living Room on Jellyfin Web).'
+        'Session: alice started, paused, "A film" (device-1 on Jellyfin Web).'
     )
     resumed = lines.index(
-        'Session: alice resumed "Dune" (Living Room on Jellyfin Web).'
+        'Session: alice resumed "A film" (device-1 on Jellyfin Web).'
     )
     throttle = next(
         i for i, m in enumerate(lines) if "[observe] would throttle" in m
     )
     paused = lines.index(
-        'Session: alice paused "Dune" (Living Room on Jellyfin Web).'
+        'Session: alice paused "A film" (device-1 on Jellyfin Web).'
     )
     stopped = lines.index(
-        'Session: alice stopped "Dune" (Living Room on Jellyfin Web).'
+        'Session: alice stopped "A film" (device-1 on Jellyfin Web).'
     )
     release = next(
         i for i, m in enumerate(lines) if "[observe] would release" in m
@@ -380,7 +380,7 @@ def test_the_next_episode_is_logged(caplog):
     w.source.sessions = [playback(title="Episode 2")]
     w.tick()
     assert (
-        'Session: alice now plays "Episode 2" (Living Room on Jellyfin Web).'
+        'Session: alice now plays "Episode 2" (device-1 on Jellyfin Web).'
         in _messages(caplog)
     )
 

@@ -98,10 +98,10 @@ def test_health_is_200_when_a_recent_tick_reached_every_service(make_rig):
 
 def test_health_lists_the_sessions_being_watched(make_rig):
     rig = make_rig()
-    rig.source.sessions = [playback("alice", title="Dune")]
+    rig.source.sessions = [playback("alice", title="A film")]
     rig.tick()
     (session,) = rig.health().json()["sessions"]
-    assert (session["user"], session["title"]) == ("alice", "Dune")
+    assert (session["user"], session["title"]) == ("alice", "A film")
 
 
 def test_health_is_503_when_the_source_is_unreachable(make_rig):

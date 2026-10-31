@@ -27,16 +27,16 @@ def source(fake, key=KEY, **kwargs):
 
 def test_a_reading_session_is_a_playback(jellyfin):
     jellyfin.sessions = [
-        session("a", user="alice", device="TV", client="Android TV")
+        session("a", user="alice", device="device-1", client="Jellyfin Web")
     ]
     (playback,) = source(jellyfin).playbacks()
     assert (playback.source, playback.session_id) == ("jellyfin", "a")
     assert (playback.user, playback.device, playback.client) == (
         "alice",
-        "TV",
-        "Android TV",
+        "device-1",
+        "Jellyfin Web",
     )
-    assert (playback.title, playback.media_type) == ("Dune", "Movie")
+    assert (playback.title, playback.media_type) == ("A film", "Movie")
     assert playback.paused is False
 
 
@@ -54,30 +54,30 @@ def test_sessions_without_a_now_playing_item_are_ignored(jellyfin):
 def test_an_episode_title_names_series_season_and_episode(jellyfin):
     jellyfin.sessions = [
         session(
-            title="Pilot",
+            title="Episode 1",
             item_type="Episode",
-            series="Severance",
+            series="A series",
             season=1,
             episode=2,
         )
     ]
     (playback,) = source(jellyfin).playbacks()
-    assert playback.title == "Severance S01E02 Pilot"
+    assert playback.title == "A series S01E02 Episode 1"
     assert playback.media_type == "Episode"
 
 
 def test_an_episode_without_numbers_falls_back_to_series_and_name(jellyfin):
     jellyfin.sessions = [
-        session(title="Special", item_type="Episode", series="Severance")
+        session(title="Episode 2", item_type="Episode", series="A series")
     ]
     (playback,) = source(jellyfin).playbacks()
-    assert playback.title == "Severance - Special"
+    assert playback.title == "A series - Episode 2"
 
 
 def test_the_media_path_is_kept_when_the_server_exposes_it(jellyfin):
-    jellyfin.sessions = [session(path="/media/movies/dune.mkv")]
+    jellyfin.sessions = [session(path="/media/library-1/film.mkv")]
     (playback,) = source(jellyfin).playbacks()
-    assert playback.media_path == "/media/movies/dune.mkv"
+    assert playback.media_path == "/media/library-1/film.mkv"
 
 
 def test_no_session_at_all_is_no_playback(jellyfin):
@@ -150,9 +150,9 @@ def test_the_standalone_control_route_programs_the_sessions(jellyfin):
 
 
 LIBRARIES = {
-    "movies": ["/media/movies"],
-    "Animes": ["/media/movies/animes", "/media/extra/animes/"],
-    "Musiques": ["/media/music"],
+    "library-1": ["/media/library-1"],
+    "library-2": ["/media/library-1/library-2", "/media/extra/library-2/"],
+    "library-3": ["/media/library-3"],
 }
 
 
@@ -171,16 +171,16 @@ def folder_reads(fake):
 def test_an_item_belongs_to_every_library_whose_folder_holds_it(jellyfin):
     jellyfin.libraries = LIBRARIES
     jellyfin.sessions = [
-        session("a", path="/media/movies/animes/akira.mkv"),
-        session("b", path="/media/extra/animes/x.mkv"),
-        session("c", path="/media/music/album/01.flac"),
-        session("d", path="/media/movies-old/dune.mkv"),
+        session("a", path="/media/library-1/library-2/other.mkv"),
+        session("b", path="/media/extra/library-2/x.mkv"),
+        session("c", path="/media/library-3/album/01.flac"),
+        session("d", path="/media/library-1-old/film.mkv"),
         session("e"),
     ]
     assert [p.libraries for p in source(jellyfin).playbacks()] == [
-        ("movies", "Animes"),
-        ("Animes",),
-        ("Musiques",),
+        ("library-1", "library-2"),
+        ("library-2",),
+        ("library-3",),
         (),
         (),
     ]
@@ -188,7 +188,7 @@ def test_an_item_belongs_to_every_library_whose_folder_holds_it(jellyfin):
 
 def test_library_folders_are_read_once_then_refreshed_rarely(jellyfin):
     jellyfin.libraries = LIBRARIES
-    jellyfin.sessions = [session(path="/media/music/a.flac")]
+    jellyfin.sessions = [session(path="/media/library-3/a.flac")]
     clock = Clock()
     reader = source(jellyfin, monotonic=clock)
     for _ in range(5):
@@ -208,7 +208,7 @@ def test_library_folders_are_not_read_while_nothing_plays(jellyfin):
 
 def test_a_failed_folder_read_keeps_the_playback_and_retries(jellyfin):
     jellyfin.libraries = LIBRARIES
-    jellyfin.sessions = [session(path="/media/music/a.flac")]
+    jellyfin.sessions = [session(path="/media/library-3/a.flac")]
     reader = source(jellyfin)
     original = reader._get
 
@@ -222,7 +222,7 @@ def test_a_failed_folder_read_keeps_the_playback_and_retries(jellyfin):
     assert playback.libraries == ()
     reader._get = original
     (playback,) = reader.playbacks()
-    assert playback.libraries == ("Musiques",)
+    assert playback.libraries == ("library-3",)
 
 
 def tasks_host(fake, key=KEY, *, read_only=False):

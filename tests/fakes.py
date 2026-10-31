@@ -26,10 +26,10 @@ def playback(
     *,
     paused: bool = False,
     session_id: str = "s1",
-    device: str | None = "Living Room",
+    device: str | None = "device-1",
     client: str | None = "Jellyfin Web",
     media_type: str | None = "Movie",
-    title: str | None = "Dune",
+    title: str | None = "A film",
     libraries: tuple[str, ...] = (),
 ) -> Playback:
     return Playback(
