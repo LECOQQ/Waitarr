@@ -485,24 +485,24 @@ def test_playback_filters_come_from_comma_separated_variables(tmp_path):
         text,
         {
             "WAITARR_IGNORE_CLIENTS": "Finamp, Jellyfin Media Player",
-            "WAITARR_IGNORE_LIBRARIES": "Musique",
+            "WAITARR_IGNORE_LIBRARIES": "Library-3",
             "WAITARR_USERS": "alice,bob",
             "WAITARR_COUNT_PAUSED": "true",
         },
     )
     f = config.policy.playback_filter
     assert f.ignore_clients == {"finamp", "jellyfin media player"}
-    assert f.ignore_libraries == {"musique"}
+    assert f.ignore_libraries == {"library-3"}
     assert f.users == {"alice", "bob"}
     assert f.count_paused is True
 
 
 def test_filters_fall_back_to_the_file_when_the_variable_is_blank(tmp_path):
     text = MINIMAL.replace(
-        "[[sources]]", '[policy]\nlibraries = ["Films"]\n\n[[sources]]'
+        "[[sources]]", '[policy]\nlibraries = ["Library-1"]\n\n[[sources]]'
     )
     config = load(tmp_path, text, {"WAITARR_LIBRARIES": " "})
-    assert config.policy.playback_filter.libraries == {"films"}
+    assert config.policy.playback_filter.libraries == {"library-1"}
 
 
 def test_an_invalid_count_paused_variable_is_refused(tmp_path):

@@ -10,8 +10,8 @@ disk. The idea was to treat an open Jellyfin session without playback
 (someone browsing the menu) as "a playback soon", and to throttle, or
 keep throttling, while it lasts.
 
-Measured against Jellyfin 12.2.0 (a disposable container, a client
-signed in as "Jellyfin Android TV"):
+Measured against Jellyfin 12.2.0 (a disposable container, one
+signed-in client):
 
 - browsing (`/Users/{id}/Views`, `/Items`, `/Items/Latest`,
   `/Users/Me`, an item) never moved the session's `LastActivityDate`;
@@ -22,8 +22,8 @@ signed in as "Jellyfin Android TV"):
   so being listed says nothing about someone being there;
 - an API key opens no session of its own.
 
-The production server agrees: the living-room session's last activity
-was the moment its film stopped, nothing after.
+A real server agrees: a session's last activity was the moment its
+playback stopped, nothing after.
 
 ## Decision
 

@@ -44,12 +44,12 @@ def test_paused_sessions_do_not_count_by_default():
 def test_filters_are_case_insensitive():
     f = PlaybackFilter.build(
         users=["Alice", "Bob"],
-        ignore_devices=["kitchen speaker"],
+        ignore_devices=["device-2"],
         media_types=["movie", "Episode"],
     )
     assert f.matches(playback("alice"))
     assert not f.matches(playback("carol"))
-    assert not f.matches(playback("bob", device="Kitchen Speaker"))
+    assert not f.matches(playback("bob", device="Device-2"))
     assert not f.matches(playback("bob", media_type="Audio"))
 
 
@@ -60,21 +60,22 @@ def test_ignore_lists_never_exclude_an_unknown_value():
 
 
 def test_libraries_filter_by_name_case_insensitively():
-    music_ignored = PlaybackFilter.build(ignore_libraries=["Musique"])
-    assert not music_ignored.matches(playback(libraries=("musique",)))
-    assert music_ignored.matches(playback(libraries=("Films",)))
+    music_ignored = PlaybackFilter.build(ignore_libraries=["Library-3"])
+    assert not music_ignored.matches(playback(libraries=("library-3",)))
+    assert music_ignored.matches(playback(libraries=("library-1",)))
     assert music_ignored.matches(playback(libraries=()))
-    films_only = PlaybackFilter.build(libraries=["Films"])
-    assert films_only.matches(playback(libraries=("FILMS",)))
-    assert not films_only.matches(playback(libraries=("Musique",)))
-    assert not films_only.matches(playback(libraries=()))
+    library_only = PlaybackFilter.build(libraries=["library-1"])
+    assert library_only.matches(playback(libraries=("LIBRARY-1",)))
+    assert not library_only.matches(playback(libraries=("library-3",)))
+    assert not library_only.matches(playback(libraries=()))
 
 
 def test_an_item_in_several_libraries_is_ignored_if_any_is_ignored():
-    animes = playback(libraries=("movies", "Animes"))
-    assert not PlaybackFilter.build(ignore_libraries=["animes"]).matches(animes)
-    assert PlaybackFilter.build(libraries=["Animes"]).matches(animes)
+    item = playback(libraries=("library-2", "Library-4"))
+    ignoring = PlaybackFilter.build(ignore_libraries=["library-4"])
+    assert not ignoring.matches(item)
+    assert PlaybackFilter.build(libraries=["Library-4"]).matches(item)
     both = PlaybackFilter.build(
-        libraries=["movies"], ignore_libraries=["Animes"]
+        libraries=["library-2"], ignore_libraries=["library-4"]
     )
-    assert not both.matches(animes)
+    assert not both.matches(item)
