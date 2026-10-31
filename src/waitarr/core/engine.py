@@ -418,6 +418,7 @@ class Engine:
         source = binding.host.name
         try:
             listed = {task.key for task in binding.host.tasks()}
+            self._tasks_readable(source, self._feeds[source], self._clock())
         except ServiceUnavailable as error:
             return [
                 Diagnostic(
@@ -703,6 +704,13 @@ class Engine:
         except ServiceUnavailable as error:
             self._task_failed(source, feed, str(error), now)
             return None
+        self._tasks_readable(source, feed, now)
+        return {task.key: task for task in listed}
+
+    def _tasks_readable(
+        self, source: str, feed: _TaskFeed, now: datetime
+    ) -> None:
+        """A read succeeded: the host is back, whoever read it."""
         if feed.down_since is not None:
             logger.info(
                 "%s: its tasks can be read again after %s.",
@@ -711,9 +719,8 @@ class Engine:
             )
             feed.down_since = None
             feed.last_logged_at = None
-            with self._lock:
-                self._runtime.task_errors.pop(source, None)
-        return {task.key: task for task in listed}
+        with self._lock:
+            self._runtime.task_errors.pop(source, None)
 
     def _task_failed(
         self, source: str, feed: _TaskFeed, error: str, now: datetime

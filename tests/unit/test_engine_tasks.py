@@ -645,3 +645,24 @@ def test_the_diagnostics_never_write_to_the_host():
     w.host.run(KEY)
     w.engine.diagnose()
     assert w.host.writes == []
+
+
+def test_a_diagnostic_that_reads_the_tasks_clears_the_error_of_the_host():
+    w = World()
+    w.host.down = True
+    w.play()
+    assert "jellyfin" in w.engine.status().task_errors
+    w.host.down = False
+    w.stop_playing(seconds=300)  # the hold is over, no tick reads the tasks
+    w.tick()
+    assert "jellyfin" in w.engine.status().task_errors
+    w.engine.diagnose()
+    assert w.engine.status().task_errors == {}
+
+
+def test_a_failed_diagnostic_read_leaves_the_error_of_the_host():
+    w = World()
+    w.host.down = True
+    w.play()
+    w.engine.diagnose()
+    assert "jellyfin" in w.engine.status().task_errors
