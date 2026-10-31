@@ -1,7 +1,7 @@
 # 🛠️ Development
 
 ```bash
-make install        # Poetry environment + pre-commit and commit-msg hooks
+make install        # Poetry environment + pre-commit, commit-msg and pre-push hooks
 make help           # every target, by category
 ```
 
