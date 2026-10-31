@@ -20,3 +20,4 @@ superseded record stays, marked as such, and names its successor.
 | [0013](0013-suspend-jellyfin-tasks.md) | Stop Jellyfin's heavy scheduled tasks during a playback, and start them again |
 | [0014](0014-no-anticipation-from-sessions.md) | No throttle ahead of playback from Jellyfin sessions |
 | [0015](0015-downloads-throttled-like-seeds.md) | Downloading torrents are throttled like seeding ones, not stopped |
+| [0016](0016-downloads-off-the-media-disk.md) | Downloads in progress belong on a disk Jellyfin does not read |

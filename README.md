@@ -149,6 +149,10 @@ and the reasons behind each choice in [docs/adr/](docs/adr/README.md).
   one, so a task started during playback is stopped.
 - qBittorrent's speed scheduler flips the same switch: Waitarr treats it
   as a human decision and warns at startup.
+- Writes the limits do not govern, such as a completed download moved
+  to its final folder, still reach the disk. Keep downloads in progress
+  on a disk Jellyfin does not read:
+  [ADR 0016](docs/adr/0016-downloads-off-the-media-disk.md).
 
 ## ❓ FAQ
 
