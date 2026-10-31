@@ -5,8 +5,8 @@
 ## Context
 
 The image (`ghcr.io/lecoqq/waitarr`, amd64 and arm64) is the main
-distribution channel. Publishing any version, `latest` included, is the
-maintainer's decision.
+distribution channel. Publishing any version, `latest` included, is a
+manual decision.
 
 ## Decision
 
