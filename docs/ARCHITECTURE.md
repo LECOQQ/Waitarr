@@ -6,7 +6,7 @@ one adapter per service.
 ```text
             ┌──────────────────── waitarr.core ────────────────────┐
 Jellyfin ──▶│ ActivitySource ─▶ ThrottlePolicy ─▶ reconcile ─▶ Engine │──▶ ThrottleTarget ──▶ qBittorrent
-            │                                       ▲            │   │
+            │                                       ▲            │──▶ TaskHost ──▶ Jellyfin tasks
             │                     StateStore ◀──────┴────────────┘   │──▶ Notifier, Heartbeat
             └──────────────────────────────────────────────────────┘
 ```
@@ -16,10 +16,11 @@ Jellyfin ──▶│ ActivitySource ─▶ ThrottlePolicy ─▶ reconcile ─�
 ```text
 src/waitarr/
 ├── core/            # no I/O library, no service knowledge
-│   ├── model.py     # Playback, TargetState, Limits, ServiceVersion
-│   ├── ports.py     # ActivitySource, ThrottleTarget, StateStore, Notifier, Heartbeat
+│   ├── model.py     # Playback, TargetState, Limits, ServiceVersion, ScheduledTask
+│   ├── ports.py     # ActivitySource, ThrottleTarget, TaskHost, StateStore, Notifier, Heartbeat
 │   ├── policy.py    # ThrottlePolicy (strategy), GlobalHysteresisPolicy, PlaybackFilter
 │   ├── reconcile.py # the ownership state machine, pure
+│   ├── tasks.py     # the same for one scheduled task, pure
 │   ├── records.py   # the persisted state document
 │   ├── engine.py    # one tick: read, decide, reconcile, write
 │   └── units.py     # durations and rates
@@ -51,9 +52,19 @@ src/waitarr/
    `reconcile` the persisted record with it.
 4. Unless observing: record the write as `pending`, persist, write,
    read back, clear `pending`, persist.
+5. For each task host, after the targets: with the same demand, `step_task`
+   stops the listed tasks found running and, when the demand ends, starts
+   again those Waitarr stopped. It follows the same steps as 3 and 4,
+   with a `pending` of its own. A host that cannot be read changes no task
+   and does not change the tick's health.
 
 The ownership states (`idle`, `engaged`, `yielded`) and why a human
 decision is never overwritten: [ADR 0003](adr/0003-ownership-state-machine.md).
+
+The task machine identifies an execution by the `StartTimeUtc` Jellyfin
+reports, never by Waitarr's clock, and a task by its `Key`; the `Id` is
+read again every tick and never persisted. The reasons, and the facts
+probed on Jellyfin: [ADR 0013](adr/0013-suspend-jellyfin-tasks.md).
 
 ## 🧩 Extending
 
@@ -62,6 +73,9 @@ decision is never overwritten: [ADR 0003](adr/0003-ownership-state-machine.md).
   `bootstrap.SOURCE_FACTORIES`, a row in `compatibility.MATRIX`.
 - **A target** (Transmission's alt-speed): the same with
   `ThrottleTarget`, `config.TARGET_TYPES`, `bootstrap.TARGET_FACTORIES`.
+- **A task host**: an adapter implementing `TaskHost` (it has no
+  `version()`: its source reports it), a factory in
+  `bootstrap.TASK_HOST_FACTORIES`.
 - **A policy** (disk-aware): a `ThrottlePolicy`. `Playback.media_path`
   already carries the file being played when the source exposes it;
   [ADR 0002](adr/0002-ports-and-adapters.md) describes the v2 path.

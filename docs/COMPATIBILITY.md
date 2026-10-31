@@ -9,6 +9,7 @@ assumed broken, only unverified.
 | Service | Minimum | Tested exactly | How |
 | --- | --- | --- | --- |
 | Jellyfin | 12.2.0 | 12.2.0 | Read-only, against a real server (production, observation mode) |
+| Jellyfin | 12.2.0 | 12.2.0 | Scheduled tasks stopped and started by hand, against a disposable container (2026-10-30) |
 | qBittorrent | 5.1.0 | 5.1.0 (Web API 2.11.4) | Read-only, against two real instances (production, observation mode) |
 | qBittorrent | 5.1.0 | 5.1.4 (Web API 2.11.4) | Read and write, `make test-docker` (default image), disposable `linuxserver/qbittorrent` container, amd64 |
 | qBittorrent | 5.1.0 | 5.1.0 (Web API 2.11.4) | Read and write, `make test-docker` with the 5.1.0 image below, amd64 |
@@ -20,8 +21,20 @@ assumed broken, only unverified.
 - **Outside the matrix**: anything older than the minimum. Waitarr logs
   a warning in capitals.
 
-Jellyfin's `/Sessions` and `/System/Info/Public` endpoints and
-qBittorrent's `transfer/speedLimitsMode`, `transfer/setSpeedLimitsMode`
+What was probed on Jellyfin 12.2.0 for the tasks: `GET /ScheduledTasks`
+gives a `Key`, an `Id` (made up per instance), a `State` (`Idle`,
+`Running`, `Cancelling`) and the last execution; stopping a running task
+answers 204 and the task is `Cancelling` for a few seconds before it is
+`Idle` with a `Cancelled` last execution; stopping an idle task answers
+500; starting a running task is ignored; an unknown `Id` answers 404. The
+`make test-live` check reads `/ScheduledTasks` and the four default keys
+(`GET` only). The stop and the start are exercised by hand and against a
+fake server, never against a real library in CI.
+
+Jellyfin's `/Sessions`, `/System/Info/Public`, `/Library/VirtualFolders`
+and `/ScheduledTasks` endpoints (read), and `DELETE` and `POST`
+`/ScheduledTasks/Running/{Id}` (stop and start a task, active mode only),
+and qBittorrent's `transfer/speedLimitsMode`, `transfer/setSpeedLimitsMode`
 (Web API 2.8.14 and later) and `app/preferences` are the only APIs used.
 
 ## 🔁 Verify it yourself

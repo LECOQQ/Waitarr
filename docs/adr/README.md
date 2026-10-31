@@ -17,5 +17,6 @@ superseded record stays, marked as such, and names its successor.
 | [0010](0010-polling-first-webhook-as-nudge.md) | Polling decides; the webhook only wakes the loop |
 | [0011](0011-image-distribution.md) | The image is built by CI, published only from a release |
 | [0012](0012-active-by-default.md) | Active by default, observation on demand |
+| [0013](0013-suspend-jellyfin-tasks.md) | Stop Jellyfin's heavy scheduled tasks during a playback, and start them again |
 | [0014](0014-no-anticipation-from-sessions.md) | No throttle ahead of playback from Jellyfin sessions |
 | [0015](0015-downloads-throttled-like-seeds.md) | Downloading torrents are throttled like seeding ones, not stopped |
