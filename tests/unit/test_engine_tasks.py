@@ -580,6 +580,41 @@ def test_observation_mode_marks_every_line_about_a_task_it_forgets(caplog):
     assert all("[observe]" in m for m in ended + gone)
 
 
+def _crashed_stop(when):
+    w = World()
+    w.host.run(KEY)
+    w.host.crash = ("stop", when)
+    with pytest.raises(HostCrash):
+        w.play()
+    w.host.crash = None
+    return w
+
+
+@pytest.mark.parametrize(
+    ("scenario", "marker"),
+    [
+        ("retry", "did not land"),
+        ("yield", "a human decision"),
+        ("confirm", "was stopped by Waitarr"),
+    ],
+)
+def test_observation_mode_ignores_the_records_an_active_run_left(
+    caplog, scenario, marker
+):
+    # The lines about a pending write, a cession or a confirmation come
+    # from persisted records; observation keeps its own, in memory, so none
+    # of them can be written there.
+    w = _crashed_stop("after" if scenario == "confirm" else "before")
+    if scenario == "yield":
+        w.host.finish(KEY)
+        w.host.run(KEY)  # a human started it again
+    caplog.set_level("INFO", logger="waitarr")
+    observer = World(store=w.store, host=w.host, clock=w.clock, simulate=True)
+    observer.play()
+    assert _lines(caplog, marker) == []
+    assert w.host.writes == [("stop", KEY)]
+
+
 def test_active_mode_does_not_mark_the_lines_about_a_task_it_forgets(caplog):
     caplog.set_level("INFO", logger="waitarr")
     w = World(keys=(KEY, "Other"))
