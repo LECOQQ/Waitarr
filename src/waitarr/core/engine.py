@@ -989,6 +989,7 @@ class Engine:
         demand: Demand | None,
     ) -> None:
         would = "[observe] would " if self._simulate else ""
+        tag = "[observe] " if self._simulate else ""
         label = _task_label(observed, key)
         action = step.action
         if action is TaskAction.STOP and observed is not None:
@@ -1026,14 +1027,16 @@ class Engine:
             )
         elif action is TaskAction.FORGET and observed is None:
             logger.warning(
-                "%s: task %s is no longer listed; Waitarr forgets it.",
+                "%s: %stask %s is no longer listed; Waitarr forgets it.",
                 source,
+                tag,
                 key,
             )
         elif action is TaskAction.FORGET:
             logger.info(
-                "%s: task %s needs nothing more from Waitarr; forgotten.",
+                "%s: %stask %s needs nothing more from Waitarr; forgotten.",
                 source,
+                tag,
                 label,
             )
         elif action is TaskAction.RETRY and step.write is not None:

@@ -565,6 +565,33 @@ def test_observation_mode_never_writes_a_task_and_never_persists():
     assert w.host.state(KEY) is TaskState.RUNNING
 
 
+def test_observation_mode_marks_every_line_about_a_task_it_forgets(caplog):
+    caplog.set_level("INFO", logger="waitarr")
+    w = World(simulate=True, keys=(KEY, "Other"))
+    w.host.run(KEY)
+    w.host.run("Other")
+    w.play()
+    w.host.finish(KEY)  # it ended by itself
+    w.host.forget("Other")  # and a plugin went away
+    w.tick()
+    ended = _lines(caplog, "needs nothing more")
+    gone = _lines(caplog, "no longer listed")
+    assert len(ended) == len(gone) == 1
+    assert all("[observe]" in m for m in ended + gone)
+
+
+def test_active_mode_does_not_mark_the_lines_about_a_task_it_forgets(caplog):
+    caplog.set_level("INFO", logger="waitarr")
+    w = World(keys=(KEY, "Other"))
+    w.host.run(KEY)
+    w.host.run("Other")
+    w.play()
+    w.host.forget("Other")
+    w.tick()
+    gone = _lines(caplog, "no longer listed")
+    assert len(gone) == 1 and "[observe]" not in gone[0]
+
+
 def test_observation_mode_reports_each_execution_once(caplog):
     caplog.set_level("INFO", logger="waitarr")
     w = World(simulate=True)
