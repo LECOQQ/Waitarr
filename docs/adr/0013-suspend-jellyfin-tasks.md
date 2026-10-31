@@ -75,5 +75,41 @@ it.
   with a target of the same name; the engine splits the memory back.
 - The engine reads the tasks only during a hold, while it owns one, or
   while a task seen running during a hold has not ended (to log its end).
-  An idle Waitarr costs Jellyfin nothing.
+  Outside these, the hourly startup check still reads `/ScheduledTasks`
+  once an hour, and nothing else.
 - The heartbeat message counts the tasks held.
+- At load in active mode, a source that is no longer configured and owns
+  no task is pruned from the state file; one that owns tasks refuses the
+  start (see above).
+- A failed read of the tasks is warned about at the first failure, then
+  again at most every 10 minutes, like an unreachable service.
+- "Seen since" in the log uses Waitarr's clock and is kept in memory
+  only.
+- After each write, the read back goes through the same pure step
+  function as a tick does, so a `stop` stays pending while the task is
+  `Cancelling`.
+
+### Crash and race resolution
+
+All of these are decided from what Jellyfin reports, never from time.
+
+- `stop` pending, task `Running` with a different execution: the stop
+  landed and a person started it again; the task is yielded.
+- `stop` pending, task `Idle` with the same last execution: the execution
+  vanished without a result (Jellyfin restarted). The task is owned and
+  started again at the end of the hold if nothing ran since, because the
+  state found was "running". Residual risk: a read between the switch to
+  `Idle` and Jellyfin writing the last result sees the old identity; the
+  task is then forgotten without a restart, which is the safe side.
+- `stop` pending, task `Idle` with a newer `Cancelled` execution: the stop
+  landed, the task is owned.
+- `stop` pending, any other status (`Completed`, `Failed`...): the task
+  ended by itself and is forgotten.
+- `stop` pending, task `Cancelling`: nothing is written; the record is
+  kept until the first `Idle`.
+- `start` pending when the hold has come back: if the start did not land
+  (`Idle`, same execution), the task returns to "stopped" without being
+  started; if it landed, it is forgotten, and the next tick stops it like
+  any other.
+- A stopped task that Jellyfin no longer lists (a plugin removed) is
+  forgotten with a warning, and does not count as a failed restore.
