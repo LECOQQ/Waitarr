@@ -97,7 +97,9 @@ Waitarr warns at startup when those are unlimited.
 
 `/healthz` answers `200` when the last tick is recent and reached every
 service, `503` otherwise, with a JSON body: mode, sessions, each
-service's reachability and version, each target's ownership and state.
+service's reachability and version, each target's ownership and state, the
+tasks Waitarr owns (`tasks`) and the sources whose tasks cannot be read
+(`task_errors`).
 
 For the webhook, install Jellyfin's *Webhook* plugin and add a *Generic*
 destination to `http://<waitarr>:8778/hooks/jellyfin`, on *Playback
@@ -130,10 +132,46 @@ Destinations, from the environment only (each also accepts `_FILE`):
 | `url` | Base URL, e.g. `http://jellyfin:8096`. |
 | `timeout` | Request timeout (default `"10s"`). |
 | `api_key_file` | Path of a file holding the API key. |
+| `suspend_tasks` | Stop Jellyfin's heavy scheduled tasks while the throttle holds (default `true`; `WAITARR_<NAME>_SUSPEND_TASKS`). |
+| `tasks` | The tasks to hold, by `Key` (default below; `WAITARR_<NAME>_TASKS`, comma separated). |
 
 API key: `WAITARR_<NAME>_API_KEY`, or a file named by
 `WAITARR_<NAME>_API_KEY_FILE` or `api_key_file`. Create it in Jellyfin's
 *Dashboard > API Keys*: a dashboard key sees every session.
+
+### Scheduled tasks
+
+While the throttle holds (same demand, same `release_after`, same
+playback filter), Waitarr stops each listed task found running, including
+one started meanwhile by the schedule or by hand: Jellyfin does not tell
+them apart. When the hold ends it starts again every task it stopped,
+provided nothing ran it since. A task restarts from zero.
+
+The default `tasks`, by `Key` (the dashboard shows translated names):
+`RefreshLibrary` (*Scan Media Library*), `TaskExtractMediaSegments`,
+`RefreshChapterImages` and `RefreshTrickplayImages`. Other tasks are never
+touched. A key Jellyfin does not list (a plugin that is absent) is a
+warning at startup and in `waitarr check`, never an error.
+
+With `suspend_tasks = false`, nothing is stopped; the listed tasks seen
+running during the hold are still logged. The API key must belong to an
+administrator: every task route answers 403 to a user token.
+
+The yielding rule: a task Waitarr stopped and found running again was
+started by a person. Waitarr leaves it running until the hold ends, then
+forgets it, and starts nothing. If a key leaves `tasks`, or
+`suspend_tasks` turns `false`, while Waitarr owns the task, it is still
+started again when the hold ends. A source removed from the file while
+Waitarr owns tasks of it stops Waitarr from starting: run
+`waitarr restore --yes` with the previous file.
+
+Stopping Waitarr during a playback starts the owned tasks again
+(`restore_on_exit`), as it gives qBittorrent's limits back. In observation
+mode nothing is written; the log says `[observe] would stop task ...`.
+If Jellyfin's tasks cannot be read, no task changes and the throttling goes
+on; the reason shows under `task_errors` in `GET /healthz`, which stays
+unchanged otherwise. The state file is schema 2 (`tasks` per source); an
+older Waitarr refuses it ([ADR 0013](adr/0013-suspend-jellyfin-tasks.md)).
 
 ## 🧲 `[[targets]]`
 

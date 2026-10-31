@@ -48,6 +48,15 @@ each tracker counts a torrent at a crawl has not been measured yet.
 - 🔌 **Stops cleanly**: on shutdown, after a crash or a restart, the state
   it found comes back.
 
+## 📚 Library scans wait too
+
+While something plays, Waitarr also stops the heavy Jellyfin scheduled
+tasks (library scan, media segments, chapter images, trickplay images) and
+runs again the ones it stopped once the throttle ends. A stopped task
+starts again from zero: Jellyfin cannot resume it. For fewer restarts,
+schedule *Scan Media Library* at night in *Dashboard > Scheduled Tasks*.
+Details and the off switch: [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+
 ## ✅ Before you start
 
 In qBittorrent, *Options > Speed > Rate Limits Settings*: check *Apply rate
@@ -125,7 +134,8 @@ Every 15 seconds Waitarr asks Jellyfin who is playing, and reads each
 qBittorrent's speed settings. A playback turns the alternative speed
 limits (the turtle) on, with your limits; a few quiet minutes later, the
 state it found is restored. If Jellyfin or qBittorrent cannot be read, it
-changes nothing. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+changes nothing. Tasks follow the same demand, with the same delay.
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 and the reasons behind each choice in [docs/adr/](docs/adr/README.md).
 
 ## 🚧 Limits
@@ -134,6 +144,9 @@ and the reasons behind each choice in [docs/adr/](docs/adr/README.md).
   being read is planned.
 - Jellyfin and qBittorrent only, for now. Tested versions:
   [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+- A task Waitarr stopped and a person started again is left running until
+  the throttle ends; Jellyfin cannot tell a scheduled start from a manual
+  one, so a task started during playback is stopped.
 - qBittorrent's speed scheduler flips the same switch: Waitarr treats it
   as a human decision and warns at startup.
 
