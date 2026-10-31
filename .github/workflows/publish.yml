@@ -1,6 +1,6 @@
 name: Publish to PyPI
 
-# Ready, not wired: publishing to PyPI is the maintainer's decision. Once
+# Ready, not wired: publishing to PyPI is a manual decision. Once
 # the Trusted Publisher is configured on PyPI, dispatch it by hand, or
 # from release-please.yml the way publish-container.yml is.
 on:

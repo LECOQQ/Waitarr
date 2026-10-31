@@ -5,7 +5,7 @@
 ## Context
 
 The brief asks for GitHub Flow, forbids merging a pull request without
-the maintainer, and expects an open release-please pull request, which only
+review, and expects an open release-please pull request, which only
 appears from commits on `main`.
 
 ## Decision
