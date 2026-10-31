@@ -523,6 +523,23 @@ def test_shutdown_gives_up_on_a_task_cancelled_for_too_long():
     assert w.record()["pending"] == "stop"
 
 
+def test_shutdown_forgets_a_yielded_task_without_waiting_for_its_cancel():
+    w = World()
+    w.host.run(KEY)
+    w.play()
+    w.host.run(KEY)  # a human starts it again: yielded
+    for _ in range(2):
+        w.tick()
+    assert w.record()["ownership"] == "yielded"
+    w.host.cancelling_reads = 100
+    w.host.stop(f"id-{KEY}")  # and someone cancels it, for a long while
+    before = w.clock.now
+    assert w.engine.restore_all()
+    assert w.clock.now == before
+    assert w.record() is None
+    assert w.host.writes[-1] == ("stop", KEY)  # nothing was started
+
+
 def test_shutdown_with_an_unreadable_host_keeps_the_record():
     w = World()
     w.host.run(KEY)

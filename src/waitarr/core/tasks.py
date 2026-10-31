@@ -225,7 +225,12 @@ def step_task(
         )
     if observed is None:
         return _forget()
-    if observed.state is TaskState.CANCELLING:
+    if (
+        observed.state is TaskState.CANCELLING
+        and record.ownership is TaskOwnership.STOPPED
+    ):
+        # Only a stop of Waitarr's own is waited for; a yielded task is a
+        # person's, whatever it is doing.
         return TaskStep(record, TaskAction.WAIT)
     if record.pending is not None:
         if record.pending is TaskWrite.STOP:
