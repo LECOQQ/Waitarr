@@ -1794,13 +1794,13 @@ files = [
 
 [[package]]
 name = "qbit-ops"
-version = "0.7.0"
+version = "0.7.1"
 description = "Bulk torrent and tracker operations for qBittorrent, from a CLI or a TUI, showing exactly what a change will touch before it touches anything."
 optional = false
 python-versions = "<4.0,>=3.12"
 files = [
-    {file = "qbit_ops-0.7.0-py3-none-any.whl", hash = "sha256:dcb3f3b102e63bd58ce8a011cb80e6c73779e292c1add7c550cd6cc53bdbaebb"},
-    {file = "qbit_ops-0.7.0.tar.gz", hash = "sha256:392609918b840df0c71eeb05bb33963ebd17d2c2ff856c786ee6953b134e752e"},
+    {file = "qbit_ops-0.7.1-py3-none-any.whl", hash = "sha256:e1a8f43ed3cbbb40f56f3a24152867db255fcc18bc89357d39d2ac40d1a8b2c3"},
+    {file = "qbit_ops-0.7.1.tar.gz", hash = "sha256:86b20fb0ac396fea03397344abcd6a0b1592debfaeb6373eeef9a80276de3772"},
 ]
 
 [package.dependencies]
