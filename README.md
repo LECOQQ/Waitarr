@@ -27,6 +27,21 @@ nobody notices.
 - Jellyfin and qBittorrent share the same disk.
 - Your films stutter while your torrents are seeding.
 
+## 🎯 What it protects
+
+**Disk reads.** A slow drive (USB, SMR, a small NAS) serves one reader
+well, not two: the film stutters because the torrents read the same disk.
+Waitarr gives that disk back to the playback.
+
+| Contention | Symptom | Waitarr |
+| --- | --- | --- |
+| 💽 Disk | a playback, local or remote, stutters while torrents use the same disk | ✅ what it is built for |
+| 🌐 Network | a remote stream buffers because seeding fills the upload link | ➖ eased as a side effect, not tuned for it ([#25](https://github.com/LECOQQ/Waitarr/issues/25)) |
+
+Not sure which one you have? If the disk sits near 100 % busy while the
+film stutters (`%util` in `iostat -x 2`), it is the disk. If local
+playback is smooth and only remote viewers buffer, it is the network.
+
 ## 🤔 Why not just pause?
 
 Pausing drops every peer and re-announces on resume. Waitarr throttles
