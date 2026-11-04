@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/LECOQQ/Waitarr/compare/v0.2.0...v0.2.1) (2026-11-04)
+
+
+### Documentation
+
+* **readme:** say which contention Waitarr protects against ([2a1734a](https://github.com/LECOQQ/Waitarr/commit/2a1734a0ca4fade314c7778f8d3938431c2aa291))
+
 ## [0.2.0](https://github.com/LECOQQ/Waitarr/compare/v0.1.1...v0.2.0) (2026-10-31)
 
 
