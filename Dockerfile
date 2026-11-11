@@ -4,7 +4,7 @@
 #
 # Renovate keeps the digest current; the tag says what it is. The Python
 # version moves with the integration and publish jobs (renovate.json).
-ARG PYTHON_IMAGE=python:3.15-slim@sha256:f786b2e19cf9bb54e96bfcd4c1b40c4c56336c22e60607ffd4b080ae5b5dee83
+ARG PYTHON_IMAGE=python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
 
 FROM ${PYTHON_IMAGE} AS builder
 
