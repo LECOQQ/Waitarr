@@ -5,8 +5,8 @@ Waitarr reads environment variables, then a TOML file, then defaults
 more qBittorrent) needs no file at all: see
 [Compose-only setup](#-compose-only-setup). The TOML file is for the
 advanced cases. Secrets come from the environment or from files, never
-from the TOML file: Waitarr refuses a `password`, `api_key` or `token`
-written there.
+from the TOML file: Waitarr refuses a `password`, `api_key`, `apikey` or
+`token` written there.
 
 The file is found at `--config`, else `$WAITARR_CONFIG`, else
 `./waitarr.toml`. The image sets `WAITARR_CONFIG=/config/waitarr.toml`.
@@ -27,7 +27,7 @@ same rule: an empty `WAITARR_<NAME>_PASSWORD` falls back to its `_FILE`.
 | --- | --- |
 | `WAITARR_JELLYFIN_URL` | Base URL of Jellyfin. Defines the source named `jellyfin` (its key is `WAITARR_JELLYFIN_API_KEY`). |
 | `WAITARR_QBIT_INSTANCES` | Names of the qBittorrent instances, separated by commas or spaces (`main,seedbox`). The list replaces any `[[targets]]` in the file; an entry of the same name in the file supplies the keys the variables do not. |
-| `WAITARR_<NAME>_URL` | WebUI base URL of that instance. |
+| `WAITARR_<NAME>_URL` | WebUI base URL of that instance; it also overrides the `url` of a `[[targets]]` entry of that name. |
 | `WAITARR_<NAME>_USERNAME` | WebUI user (default `admin` for an instance defined by variables). |
 | `WAITARR_<NAME>_PASSWORD` | WebUI password (or `_FILE`). |
 | `WAITARR_<NAME>_THROTTLE_DOWNLOAD` / `_UPLOAD` | Per-instance limits, both or neither. |
@@ -66,6 +66,8 @@ per second.
 
 A list variable is comma separated (`WAITARR_IGNORE_CLIENTS=Finamp,Jellyfin
 Media Player`) and replaces the file's list; left empty, the file decides.
+A value that lists nothing (`,`) and an empty string in a file's list
+(`users = [""]`) are refused.
 An item belongs to every library with a folder holding its file
 (Jellyfin libraries may share folders). It is ignored if **any** of its
 libraries is in `ignore_libraries`, and counted by `libraries` if **any**
@@ -98,8 +100,10 @@ Waitarr warns at startup when those are unlimited.
 `/healthz` answers `200` when the last tick is recent and reached every
 service, `503` otherwise, with a JSON body: mode, sessions, each
 service's reachability and version, each target's ownership and state, the
-tasks Waitarr owns (`tasks`) and the sources whose tasks cannot be read
-(`task_errors`).
+tasks Waitarr owns (`tasks`), the sources whose tasks cannot be read
+(`task_errors`) and the sources whose library folders cannot be read
+(`libraries_unreadable`, a list of names: it marks the body and leaves the
+status code alone).
 
 Who watches what (user, title, device, client) and the versions of Waitarr
 and of the services are part of the body only for a request that carries
@@ -134,7 +138,7 @@ Destinations, from the environment only (each also accepts `_FILE`):
 
 | Key | Meaning |
 | --- | --- |
-| `name` | Lowercase letters, digits, `-`, `_`; unique across sources and targets. |
+| `name` | Lowercase letters, digits, `-`, `_`; at most 32 characters, starting with a letter or digit; unique across sources and targets. Not `healthchecks` or any name whose variables are already a setting (`notify-webhook`, `notify-ntfy`). |
 | `type` | `"jellyfin"`. |
 | `url` | Base URL, e.g. `http://jellyfin:8096`. |
 | `timeout` | Request timeout (default `"10s"`). |

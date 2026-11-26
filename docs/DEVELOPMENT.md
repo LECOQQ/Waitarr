@@ -7,7 +7,7 @@ make help           # every target, by category
 
 | Target | What it runs |
 | --- | --- |
-| `make check-fast` | Lint, types, hermetic tests. |
+| `make check-fast` | Lint, types, unit tests (no network; the gitleaks rule test needs gitleaks or Docker). |
 | `make check` | The push gate: lint, types, tests, version sync, doc links, AI hygiene. |
 | `make test-docker` | Integration suite against a disposable qBittorrent container and a fake Jellyfin; fails if a container leaks. |
 | `make check-image` | Builds the image and runs it end to end against disposable containers. |
