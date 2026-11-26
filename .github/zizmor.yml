@@ -1,0 +1,7 @@
+# zizmor configuration. ci.yml is written by `agent-harness ci init` and calls
+# the local setup action as `./.github/actions/setup`; the `$/` spelling that
+# the self-repository audit suggests would make every regeneration differ.
+rules:
+  self-repository:
+    ignore:
+      - ci.yml
