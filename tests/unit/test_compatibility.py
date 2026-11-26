@@ -20,6 +20,16 @@ def test_a_version_newer_than_the_minimum_but_untested_is_assumed():
     assert verdict("jellyfin", "12.3.1") is Verdict.ASSUMED
 
 
+def test_only_a_version_above_the_last_tested_one_is_called_newer():
+    def message(version):
+        return assess("qbittorrent", ServiceVersion("x", version)).message
+
+    assert "newer than every tested version" in message("5.2.0")
+    between = message("5.1.2")
+    assert "newer than every tested version" not in between
+    assert "not one of the tested versions" in between
+
+
 def test_a_version_below_the_minimum_is_unsupported():
     assert verdict("qbittorrent", "4.6.7") is Verdict.UNSUPPORTED
     assert verdict("jellyfin", "10.9.0") is Verdict.UNSUPPORTED

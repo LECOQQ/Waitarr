@@ -73,8 +73,12 @@ def assess(kind: str, reported: ServiceVersion | None) -> Assessment:
         )
     if any(version == _parse(t) for t in support.tested):
         return Assessment(Verdict.TESTED, f"{shown}: tested")
+    relation = (
+        "newer than every tested version"
+        if all(version > _parse(t) for t in support.tested)
+        else "not one of the tested versions"
+    )
     return Assessment(
         Verdict.ASSUMED,
-        f"{shown}: newer than every tested version, assumed compatible "
-        "-- see docs/COMPATIBILITY.md",
+        f"{shown}: {relation}, assumed compatible -- see docs/COMPATIBILITY.md",
     )
