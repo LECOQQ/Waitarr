@@ -98,7 +98,12 @@ def test_both_engines_report_the_same_findings_on_the_same_rules(
     opengrep = _findings("opengrep", tmp_path / "o.sarif", tmp_path, project)
     semgrep = _findings("semgrep", tmp_path / "s.sarif", tmp_path, project)
 
-    assert opengrep == {("urlopen-without-timeout", "sample.py", 5)}
+    # Line 5 is left alone; line 15 has a suppression with the rule's short
+    # id (dropped from the SARIF); line 20 names no rule (still reported).
+    assert opengrep == {
+        ("urlopen-without-timeout", "sample.py", 5),
+        ("urlopen-without-timeout", "sample.py", 20),
+    }
     assert semgrep == opengrep
 
 
