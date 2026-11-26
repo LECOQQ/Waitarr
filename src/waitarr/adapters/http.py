@@ -13,7 +13,7 @@ import logging
 import re
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import cast
@@ -85,10 +85,15 @@ def public_view(document: dict[str, object]) -> dict[str, object]:
 
 
 def status_document(
-    status: EngineStatus, *, now: datetime, stale_after: timedelta
+    status: EngineStatus,
+    *,
+    now: datetime,
+    stale_after: timedelta,
+    libraries_unreadable: Sequence[str] = (),
 ) -> tuple[bool, dict[str, object]]:
     """Return (healthy, document). Healthy means a recent tick reached
-    every service."""
+    every service. `libraries_unreadable` names the sources whose library
+    folders could not be read: it marks the document, not the health."""
     fresh = (
         status.last_tick_at is not None
         and now - status.last_tick_at <= stale_after
@@ -168,6 +173,7 @@ def status_document(
             for host, owned in status.tasks.items()
         },
         "task_errors": dict(status.task_errors),
+        "libraries_unreadable": list(libraries_unreadable),
     }
     return healthy, document
 
