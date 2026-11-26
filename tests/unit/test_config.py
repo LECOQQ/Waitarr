@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from pathlib import Path
 
@@ -623,3 +624,329 @@ def test_a_misspelt_task_option_is_still_an_unknown_key(tmp_path):
         1,
     )
     assert mentions(problems(tmp_path, text), "suspend_task", "unknown key")
+
+
+# --- One contract per setting: the variable wins over the file, everywhere.
+
+DOC = (Path(__file__).parents[2] / "docs" / "CONFIGURATION.md").read_text(
+    encoding="utf-8"
+)
+THROTTLED = MINIMAL.replace(
+    'username = "admin"',
+    'username = "admin"\nthrottle = { download = "1KiB", upload = "1KiB" }',
+)
+GLOBAL_THROTTLE = '[throttle]\ndownload = "1KiB"\nupload = "1KiB"\n'
+
+
+def _filter(name):
+    return lambda c: getattr(c.policy.playback_filter, name)
+
+
+def _filter_case(name):
+    variable = f"WAITARR_{name.upper()}"
+    text = f'[policy]\n{name} = ["a"]\n' + MINIMAL
+    return (variable, variable, text, "b", _filter(name), {"b"})
+
+
+# (documented spelling, variable set, file text, value, what to read, expected)
+PRECEDENCE = [
+    (
+        "WAITARR_MODE",
+        "WAITARR_MODE",
+        'mode = "observe"\n' + MINIMAL,
+        "active",
+        lambda c: c.mode,
+        Mode.ACTIVE,
+    ),
+    (
+        "WAITARR_POLL_INTERVAL",
+        "WAITARR_POLL_INTERVAL",
+        'poll_interval = "5s"\n' + MINIMAL,
+        "1m",
+        lambda c: c.poll_interval,
+        timedelta(minutes=1),
+    ),
+    (
+        "WAITARR_STATE_FILE",
+        "WAITARR_STATE_FILE",
+        'state_file = "a.json"\n' + MINIMAL,
+        "b.json",
+        lambda c: c.state_file,
+        Path("b.json"),
+    ),
+    (
+        "WAITARR_LOG_LEVEL",
+        "WAITARR_LOG_LEVEL",
+        'log_level = "INFO"\n' + MINIMAL,
+        "debug",
+        lambda c: c.log_level,
+        "DEBUG",
+    ),
+    (
+        "WAITARR_RELEASE_AFTER",
+        "WAITARR_RELEASE_AFTER",
+        '[policy]\nrelease_after = "5m"\n' + MINIMAL,
+        "1m",
+        lambda c: c.policy.release_after,
+        timedelta(minutes=1),
+    ),
+    (
+        "WAITARR_COUNT_PAUSED",
+        "WAITARR_COUNT_PAUSED",
+        "[policy]\ncount_paused = false\n" + MINIMAL,
+        "true",
+        lambda c: c.policy.playback_filter.count_paused,
+        True,
+    ),
+    _filter_case("users"),
+    _filter_case("ignore_users"),
+    _filter_case("ignore_devices"),
+    _filter_case("ignore_clients"),
+    _filter_case("media_types"),
+    _filter_case("libraries"),
+    _filter_case("ignore_libraries"),
+    (
+        "WAITARR_THROTTLE_DOWNLOAD",
+        "WAITARR_THROTTLE_DOWNLOAD",
+        GLOBAL_THROTTLE + MINIMAL,
+        "5KiB",
+        lambda c: c.targets[0].throttle,
+        Limits(5 * 1024, 1024),
+    ),
+    (
+        "WAITARR_THROTTLE_UPLOAD",
+        "WAITARR_THROTTLE_UPLOAD",
+        GLOBAL_THROTTLE + MINIMAL,
+        "6KiB",
+        lambda c: c.targets[0].throttle,
+        Limits(1024, 6 * 1024),
+    ),
+    (
+        "WAITARR_HTTP_LISTEN",
+        "WAITARR_HTTP_LISTEN",
+        '[http]\nlisten = "0.0.0.0:1"\n' + MINIMAL,
+        "127.0.0.1:2",
+        lambda c: (c.http.host, c.http.port),
+        ("127.0.0.1", 2),
+    ),
+    (
+        "WAITARR_<NAME>_URL",
+        "WAITARR_MAIN_URL",
+        MINIMAL,
+        "http://other:1",
+        lambda c: c.targets[0].url,
+        "http://other:1",
+    ),
+    (
+        "WAITARR_<NAME>_USERNAME",
+        "WAITARR_MAIN_USERNAME",
+        MINIMAL,
+        "bob",
+        lambda c: c.targets[0].username,
+        "bob",
+    ),
+    (
+        "WAITARR_<NAME>_THROTTLE_DOWNLOAD",
+        "WAITARR_MAIN_THROTTLE_DOWNLOAD",
+        THROTTLED,
+        "9KiB",
+        lambda c: c.targets[0].throttle,
+        Limits(9 * 1024, 1024),
+    ),
+    (
+        "WAITARR_<NAME>_SUSPEND_TASKS",
+        "WAITARR_JELLYFIN_SUSPEND_TASKS",
+        SOURCE_WITH_TASKS,
+        "true",
+        lambda c: c.sources[0].suspend_tasks,
+        True,
+    ),
+    (
+        "WAITARR_<NAME>_TASKS",
+        "WAITARR_JELLYFIN_TASKS",
+        SOURCE_WITH_TASKS,
+        "RefreshLibrary",
+        lambda c: c.sources[0].tasks,
+        ("RefreshLibrary",),
+    ),
+]
+
+# Documented, but not a setting the file also holds: secrets and
+# destinations come from the environment only, the Compose-only variables
+# have their own tests, and the last is an example of a name.
+NOT_IN_THE_FILE = {
+    "WAITARR_CONFIG",
+    "WAITARR_JELLYFIN_URL",
+    "WAITARR_QBIT_INSTANCES",
+    "WAITARR_<NAME>_PASSWORD",
+    "WAITARR_<NAME>_API_KEY",
+    "WAITARR_<NAME>_PASSWORD_FILE",
+    "WAITARR_<NAME>_API_KEY_FILE",
+    "WAITARR_WEBHOOK_TOKEN",
+    "WAITARR_NOTIFY_WEBHOOK_URL",
+    "WAITARR_NOTIFY_NTFY_URL",
+    "WAITARR_NOTIFY_NTFY_TOKEN",
+    "WAITARR_HEALTHCHECKS_URL",
+    "WAITARR_JELLYFIN_API_KEY",
+    "WAITARR_SEEDBOX_2_PASSWORD",
+}
+
+
+@pytest.mark.parametrize(
+    ("documented", "variable", "text", "value", "read", "expected"),
+    PRECEDENCE,
+    ids=[case[1] for case in PRECEDENCE],
+)
+def test_every_documented_variable_wins_over_the_file(
+    tmp_path, documented, variable, text, value, read, expected
+):
+    assert read(load(tmp_path, text, {variable: value})) == expected
+
+
+def test_every_variable_of_the_documentation_has_a_precedence_case():
+    documented = set(re.findall(r"`(WAITARR_[A-Z0-9_<>]+)`", DOC))
+    covered = {case[0] for case in PRECEDENCE} | NOT_IN_THE_FILE
+    assert documented <= covered, sorted(documented - covered)
+
+
+# --- Whatever is written, the loader answers with a ConfigError only.
+
+HOSTILE_ENVIRONMENT = [
+    {"WAITARR_POLL_INTERVAL": "9" * 400},
+    {"WAITARR_POLL_INTERVAL": "99999999999999999999h"},
+    {"WAITARR_POLL_INTERVAL": "9" * 5000},
+    {"WAITARR_RELEASE_AFTER": "1" + "0" * 30 + "s"},
+    {"WAITARR_THROTTLE_DOWNLOAD": "9" * 400, "WAITARR_THROTTLE_UPLOAD": "1KiB"},
+    {"WAITARR_HTTP_LISTEN": "host:²"},
+    {"WAITARR_HTTP_LISTEN": "host:" + "9" * 5000},
+    {"WAITARR_MAIN_THROTTLE_DOWNLOAD": "9" * 400},
+]
+HOSTILE_FILES = [
+    "poll_interval = [1]\n",
+    "poll_interval = 9223372036854775807\n",
+    "poll_interval = 1e300\n",
+    'poll_interval = "99999999999999999999h"\n',
+    'state_file = ["a"]\n',
+    "[policy]\nrelease_after = {}\n",
+    '[policy]\nusers = [""]\n',
+    '[policy]\nignore_libraries = ["Music", " "]\n',
+    '[http]\nlisten = "host:²"\n',
+]
+HOSTILE_ENTRIES = [
+    ('name = "main"', 'name = ["main"]'),
+    ('type = "qbittorrent"', 'type = ["qbittorrent"]'),
+    ('url = "http://qbittorrent:8080"', 'url = "http://[::1"'),
+    ('url = "http://qbittorrent:8080"', "url = 3"),
+    (
+        'username = "admin"',
+        'username = "admin"\nthrottle = "fast"\npassword_file = "a\\u0000b"',
+    ),
+    ('username = "admin"', 'username = "admin"\ntimeout = "9999999999999h"'),
+]
+
+
+@pytest.mark.parametrize("environ", HOSTILE_ENVIRONMENT)
+def test_a_hostile_variable_is_a_config_error(tmp_path, environ):
+    problems(tmp_path, environ=environ)
+
+
+@pytest.mark.parametrize("text", HOSTILE_FILES)
+def test_a_hostile_file_is_a_config_error(tmp_path, text):
+    problems(tmp_path, text + MINIMAL)
+
+
+@pytest.mark.parametrize(("good", "bad"), HOSTILE_ENTRIES)
+def test_a_hostile_entry_is_a_config_error(tmp_path, good, bad):
+    problems(tmp_path, MINIMAL.replace(good, bad), secrets=False)
+
+
+@pytest.mark.parametrize(
+    "environ", [{"WAITARR_QBIT_INSTANCES": "main"}, {}], ids=["listed", "file"]
+)
+def test_a_throttle_that_is_not_a_table_is_a_config_error(tmp_path, environ):
+    text = MINIMAL.replace(
+        'username = "admin"', 'username = "admin"\nthrottle = "fast"'
+    )
+    found = problems(
+        tmp_path,
+        text,
+        {**environ, "WAITARR_MAIN_THROTTLE_DOWNLOAD": "1KiB"},
+    )
+    assert mentions(found, "throttle", "table")
+
+
+def test_a_config_file_that_is_not_text_is_a_config_error(tmp_path):
+    path = tmp_path / "waitarr.toml"
+    path.write_bytes(b"mode = '\xff\xfe'\n")
+    with pytest.raises(ConfigError):
+        load_config(path, SECRETS)
+
+
+def test_a_secrets_file_that_is_not_text_is_a_config_error(tmp_path):
+    secret = tmp_path / "secret"
+    secret.write_bytes(b"\xff\xfe")
+    found = problems(
+        tmp_path,
+        secrets=False,
+        environ={
+            "WAITARR_JELLYFIN_API_KEY": "k",
+            "WAITARR_MAIN_PASSWORD_FILE": str(secret),
+        },
+    )
+    assert mentions(found, "WAITARR_MAIN_PASSWORD", "cannot read")
+
+
+# --- Every other silent reading of an empty value.
+
+
+@pytest.mark.parametrize(
+    "variable", ["WAITARR_JELLYFIN_TASKS", "WAITARR_USERS"]
+)
+@pytest.mark.parametrize("value", [",", " , ,"])
+def test_a_list_variable_that_lists_nothing_is_refused(
+    tmp_path, variable, value
+):
+    assert mentions(
+        problems(tmp_path, environ={variable: value}), variable, "no value"
+    )
+
+
+def test_a_file_target_reads_its_url_and_limits_from_the_environment(tmp_path):
+    # Without WAITARR_QBIT_INSTANCES the file's target used to ignore both.
+    target = load(
+        tmp_path,
+        THROTTLED,
+        {
+            "WAITARR_MAIN_URL": "http://env:1",
+            "WAITARR_MAIN_THROTTLE_UPLOAD": "3KiB",
+        },
+    ).targets[0]
+    assert (target.url, target.throttle) == (
+        "http://env:1",
+        Limits(1024, 3 * 1024),
+    )
+
+
+@pytest.mark.parametrize(
+    "name", ["healthchecks", "notify-webhook", "notify_ntfy"]
+)
+def test_a_name_that_collides_with_a_global_variable_is_refused(tmp_path, name):
+    text = MINIMAL.replace('name = "main"', f'name = "{name}"')
+    assert mentions(problems(tmp_path, text), name, "not available as a name")
+    assert mentions(
+        problems(tmp_path, MINIMAL, {"WAITARR_QBIT_INSTANCES": name}),
+        name,
+        "not available as a name",
+    )
+
+
+def test_an_unknown_strategy_is_refused_and_lists_the_known_ones(tmp_path):
+    text = '[policy]\nstrategy = "nope"\n' + MINIMAL
+    assert mentions(problems(tmp_path, text), "strategy", "global")
+
+
+def test_the_example_file_keeps_the_default_state_file_name(tmp_path):
+    # Copied over an installation, another name loses the trace of what
+    # Waitarr must give back.
+    default = load(tmp_path).state_file.name
+    assert load_config(EXAMPLE, SECRETS).state_file.name == default

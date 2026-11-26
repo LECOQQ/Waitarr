@@ -168,11 +168,17 @@ def _with_environment(
         merged["sources"] = sources
 
     listed = environ.get("WAITARR_QBIT_INSTANCES")
+    declared = data.get("targets")
+    if not listed and isinstance(declared, list):
+        merged["targets"] = [
+            _with_target_variables(e, environ) if isinstance(e, dict) else e
+            for e in declared
+        ]
     if listed:
         files: dict[Any, Any] = {
-            e.get("name"): e
+            e["name"]: e
             for e in data.get("targets", [])
-            if isinstance(e, dict)
+            if isinstance(e, dict) and isinstance(e.get("name"), str)
         }
         targets: list[dict[str, Any]] = []
         for name in re.split(r"[,\s]+", listed.strip()):
@@ -185,6 +191,11 @@ def _with_environment(
                     "characters"
                 )
                 continue
+            if _is_reserved(name):
+                reader.fail(
+                    f"WAITARR_QBIT_INSTANCES: {_reserved_message(name)}"
+                )
+                continue
             base: dict[str, Any] = files.get(name) or {
                 "name": name,
                 "username": "admin",
@@ -192,18 +203,59 @@ def _with_environment(
             entry: dict[str, Any] = dict(base)
             entry["name"] = name
             entry.setdefault("type", "qbittorrent")
-            url = environ.get(env_name(name, "url"))
-            if url:
-                entry["url"] = url
-            limits: dict[str, Any] = dict(entry.get("throttle") or {})
-            for key in ("download", "upload"):
-                value = environ.get(env_name(name, f"throttle_{key}"))
-                if value:
-                    limits[key] = value
-            if limits:
-                entry["throttle"] = limits
-            targets.append(entry)
+            targets.append(_with_target_variables(entry, environ))
         merged["targets"] = targets
+    return merged
+
+
+# Variables that already mean something else: an entry named after one
+# would read it a second time as its own setting.
+_RESERVED_VARIABLES = frozenset(
+    {
+        "WAITARR_HEALTHCHECKS_URL",
+        "WAITARR_NOTIFY_WEBHOOK_URL",
+        "WAITARR_NOTIFY_NTFY_URL",
+        "WAITARR_NOTIFY_NTFY_TOKEN",
+        "WAITARR_WEBHOOK_TOKEN",
+    }
+)
+
+
+def _is_reserved(name: str) -> bool:
+    return any(
+        env_name(name, field_name) in _RESERVED_VARIABLES
+        for field_name in ("url", "username", "password", "api_key")
+    )
+
+
+def _reserved_message(name: str) -> str:
+    return (
+        f"'{name}' is not available as a name: its variables would "
+        "collide with a Waitarr setting; pick another name"
+    )
+
+
+def _with_target_variables(
+    entry: Mapping[str, Any], environ: Mapping[str, str]
+) -> dict[str, Any]:
+    """A target entry with its `WAITARR_<NAME>_URL` and `_THROTTLE_*`
+    variables laid over the file's keys."""
+    merged = dict(entry)
+    name = entry.get("name")
+    if not isinstance(name, str):
+        return merged
+    url = environ.get(env_name(name, "url"))
+    if url:
+        merged["url"] = url
+    limits = merged.get("throttle") or {}
+    if isinstance(limits, dict):
+        limits = dict(limits)
+        for key in ("download", "upload"):
+            value = environ.get(env_name(name, f"throttle_{key}"))
+            if value:
+                limits[key] = value
+        if limits:
+            merged["throttle"] = limits
     return merged
 
 
@@ -254,7 +306,19 @@ class _Reader:
         ):
             self.fail(f"{where}: must be a list of strings")
             return []
+        if any(not v.strip() for v in raw):
+            self.fail(f"{where}: must not hold an empty value")
         return raw
+
+    def variable_list(self, variable: str) -> list[str]:
+        """A comma separated variable. Stray commas are skipped, but a
+        value that lists nothing (`,`) is refused: it would otherwise
+        empty the list, or widen a filter, in silence."""
+        listed = [v.strip() for v in self.environ[variable].split(",")]
+        listed = [v for v in listed if v]
+        if not listed:
+            self.fail(f"{variable}: lists no value")
+        return listed
 
     def secret(
         self, service: str, field_name: str, entry: Mapping[str, Any]
@@ -280,11 +344,9 @@ class _Reader:
     def read_secret_file(self, path: str, variable: str) -> str | None:
         try:
             value = Path(path).read_text(encoding="utf-8").strip()
-        except OSError as error:
-            self.fail(
-                f"{variable}: cannot read secrets file {path} "
-                f"({error.strerror})"
-            )
+        except (OSError, ValueError) as error:
+            reason = getattr(error, "strerror", None) or "not readable text"
+            self.fail(f"{variable}: cannot read secrets file {path} ({reason})")
             return None
         if not value:
             self.fail(f"{variable}: secrets file {path} is empty")
@@ -335,7 +397,11 @@ def _url(reader: _Reader, where: str, raw: Any) -> str:
     if not isinstance(raw, str) or not re.match(r"^https?://\S+$", raw):
         reader.fail(f"{where}.url: an http:// or https:// URL is required")
         return ""
-    parts = urlsplit(raw)
+    try:
+        parts = urlsplit(raw)
+    except ValueError:
+        reader.fail(f"{where}.url: not a valid URL")
+        return ""
     if parts.username or parts.password:
         # Never echo the URL: it holds the credential being refused.
         reader.fail(
@@ -408,11 +474,9 @@ def _task_keys(
     the file, then the four defaults. A key is repeated at most once."""
     variable = env_name(name, "tasks")
     if variable in reader.environ:
-        listed = [k.strip() for k in reader.environ[variable].split(",")]
+        listed = reader.variable_list(variable)
     elif "tasks" in entry:
         listed = reader.string_list(f"{where}: tasks", entry["tasks"])
-        if any(not k.strip() for k in listed):
-            reader.fail(f"{where}: tasks must not hold an empty key")
         listed = [k.strip() for k in listed]
     else:
         return DEFAULT_TASKS
@@ -493,6 +557,10 @@ TARGET_TYPES: dict[
 ] = {
     "qbittorrent": _qbittorrent,
 }
+# The strategies a `[policy] strategy` may name; `bootstrap.POLICY_FACTORIES`
+# must hold the same keys (tests/unit/test_bootstrap.py). Declared here
+# because `bootstrap` imports this module.
+POLICY_STRATEGIES = ("global",)
 
 
 def _entries(
@@ -523,12 +591,15 @@ def _entries(
                 "'-' or '_', at most 32 characters"
             )
             continue
+        if _is_reserved(name):
+            reader.fail(f"{where}: {_reserved_message(name)}")
+            continue
         if name in seen:
             reader.fail(f"{where}: the name '{name}' is already used")
             continue
         seen.add(name)
         kind = entry.get("type")
-        if kind not in kinds:
+        if not isinstance(kind, str) or kind not in kinds:
             reader.fail(
                 f"{where} '{name}': 'type' must be one of "
                 f"{', '.join(sorted(kinds))}"
@@ -543,7 +614,7 @@ def _listen(reader: _Reader, raw: Any) -> tuple[str, int | None]:
         return "", None
     text = str(raw)
     host, _, port = text.rpartition(":")
-    if not port.isdigit() or not 0 <= int(port) <= 65535:
+    if not re.fullmatch(r"[0-9]{1,5}", port) or int(port) > 65535:
         reader.fail(
             f"http.listen: expected 'host:port' "
             f"(e.g. '0.0.0.0:{DEFAULT_HTTP_PORT}'), "
@@ -590,9 +661,13 @@ def parse_config(
     )
     if poll < timedelta(seconds=1):
         reader.fail("poll_interval: must be at least 1s")
-    state_file = Path(
-        str(setting("state_file", "WAITARR_STATE_FILE", "waitarr-state.json"))
+    state_raw = setting(
+        "state_file", "WAITARR_STATE_FILE", "waitarr-state.json"
     )
+    if not isinstance(state_raw, str):
+        reader.fail("state_file: must be a path (a string)")
+        state_raw = "waitarr-state.json"
+    state_file = Path(state_raw)
     restore_on_exit = data.get("restore_on_exit", True)
     if not isinstance(restore_on_exit, bool):
         reader.fail("restore_on_exit: must be true or false")
@@ -620,8 +695,10 @@ def parse_config(
         },
     )
     strategy = policy_raw.get("strategy", "global")
-    if strategy != "global":
-        reader.fail("[policy] strategy: v1 provides 'global' only")
+    if strategy not in POLICY_STRATEGIES:
+        reader.fail(
+            "[policy] strategy: one of " + ", ".join(sorted(POLICY_STRATEGIES))
+        )
     release_after = reader.convert(
         "[policy] release_after",
         environ.get("WAITARR_RELEASE_AFTER")
@@ -644,8 +721,7 @@ def parse_config(
         """A filter list: `WAITARR_<KEY>` (comma separated), then the file."""
         variable = f"WAITARR_{key.upper()}"
         if variable in environ:
-            listed = environ[variable].split(",")
-            return [v.strip() for v in listed if v.strip()]
+            return reader.variable_list(variable)
         return reader.string_list(f"[policy] {key}", policy_raw.get(key))
 
     playback_filter = PlaybackFilter.build(
@@ -767,6 +843,6 @@ def load_config(
         ) from error
     except OSError as error:
         raise ConfigError([f"{resolved}: {error.strerror}"]) from error
-    except tomllib.TOMLDecodeError as error:
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as error:
         raise ConfigError([f"{resolved}: not valid TOML ({error})"]) from error
     return parse_config(data, path=resolved, environ=env)

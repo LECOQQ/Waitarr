@@ -32,19 +32,26 @@ _RATE_FACTORS = {
 }
 
 
+def _seconds(seconds: float, value: object) -> timedelta:
+    try:
+        return timedelta(seconds=seconds)
+    except OverflowError:
+        raise ValueError(f"a duration is too large: {value!r}") from None
+
+
 def parse_duration(value: str | int | float) -> timedelta:
     """Accept seconds as a number, or "90s", "3m", "1h30m", "250ms"."""
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
         raise ValueError(f"not a duration: {value!r}")
     if isinstance(value, int | float):
         if not math.isfinite(value):
             raise ValueError(f"a duration must be finite: {value!r}")
         if value < 0:
             raise ValueError(f"a duration cannot be negative: {value!r}")
-        return timedelta(seconds=value)
+        return _seconds(value, value)
     text = value.strip().lower().replace(" ", "")
-    if text.isdigit():
-        return timedelta(seconds=int(text))
+    if text.isascii() and text.isdigit():
+        return _seconds(int(text), value)
     position = 0
     seconds = 0.0
     for match in _DURATION_PART.finditer(text):
@@ -56,7 +63,7 @@ def parse_duration(value: str | int | float) -> timedelta:
         raise ValueError(
             f"not a duration: {value!r} (write e.g. '15s', '3m', '1h30m')"
         )
-    return timedelta(seconds=seconds)
+    return _seconds(seconds, value)
 
 
 def parse_rate(value: str | int) -> int:
@@ -73,7 +80,10 @@ def parse_rate(value: str | int) -> int:
             f"not a rate: {value!r} (write e.g. '1KiB', '512KiB', '2MiB')"
         )
     unit = match.group(2).lower() if match.group(2) else None
-    return int(float(match.group(1)) * _RATE_FACTORS[unit])
+    amount = float(match.group(1)) * _RATE_FACTORS[unit]
+    if not math.isfinite(amount):
+        raise ValueError(f"a rate is too large: {value!r}")
+    return int(amount)
 
 
 def format_rate(bytes_per_second: int) -> str:
