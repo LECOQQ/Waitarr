@@ -130,6 +130,12 @@ class AppConfig:
     http: HttpConfig
     notify: NotifyConfig
 
+    def service_kinds(self) -> dict[str, str]:
+        """Each service's name mapped to its configured type."""
+        return {s.name: s.type for s in self.sources} | {
+            t.name: t.type for t in self.targets
+        }
+
 
 def present(environ: Mapping[str, str]) -> dict[str, str]:
     """The environment without empty variables.

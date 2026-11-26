@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import timedelta
 
 import pytest
@@ -15,6 +16,7 @@ from tests.fakes import (
     playback,
 )
 from waitarr import cli
+from waitarr.compatibility import Assessment, Verdict
 from waitarr.core.engine import Engine, TargetBinding, TaskBinding
 from waitarr.core.model import ServiceVersion
 from waitarr.core.policy import GlobalHysteresisPolicy
@@ -110,6 +112,27 @@ def test_check_fails_on_a_version_it_cannot_read(wiring, monkeypatch):
         for ln in result.output.splitlines()
     )
     assert result.exit_code == 1
+
+
+def test_check_assesses_each_service_by_its_configured_type(
+    wiring, monkeypatch
+):
+    loaded = cli.load_config(wiring.config)
+    config = replace(
+        loaded,
+        sources=tuple(replace(s, type="plex") for s in loaded.sources),
+        targets=tuple(replace(t, type="deluge") for t in loaded.targets),
+    )
+    monkeypatch.setattr(cli, "load_config", lambda path: config)
+    kinds = []
+
+    def record(kind, version):
+        kinds.append(kind)
+        return Assessment(Verdict.TESTED, "recorded")
+
+    monkeypatch.setattr(cli, "assess", record)
+    wiring.run("check")
+    assert sorted(kinds) == ["deluge", "plex"]
 
 
 def test_check_never_writes_to_the_task_host(wiring):

@@ -78,9 +78,7 @@ def compatibility_warnings(
     config: AppConfig, versions: Mapping[str, ServiceVersion | None]
 ) -> list[str]:
     """One line per service whose version is not a tested one."""
-    kinds = {s.name: s.type for s in config.sources} | {
-        t.name: t.type for t in config.targets
-    }
+    kinds = config.service_kinds()
     warnings = []
     for name, version in versions.items():
         assessment = assess(kinds[name], version)
