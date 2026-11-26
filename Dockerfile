@@ -50,6 +50,13 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONUNBUFFERED=1 \
     WAITARR_CONFIG=/config/waitarr.toml
 
+# The base image is pinned by digest and lags the Debian security archive:
+# upgrade the OS packages so the fixed ones are in the image (the image scan
+# fails on a fixable HIGH or CRITICAL one).
+RUN apt-get update \
+    && apt-get upgrade --yes \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /opt/waitarr /opt/waitarr
 ENV PATH=/opt/waitarr/bin:$PATH
 
