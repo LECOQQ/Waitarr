@@ -86,6 +86,25 @@ def test_health_is_503_and_starting_before_the_first_tick(make_rig):
     assert response.json()["status"] == "starting"
 
 
+def test_stopping_an_idle_surface_does_not_wait_for_its_wakeup():
+    import time
+
+    for _ in range(5):
+        surface = HttpSurface(
+            host="127.0.0.1",
+            port=0,
+            status=lambda: (True, {}),
+            wake=lambda: None,
+            webhook_enabled=False,
+            webhook_token=None,
+        )
+        surface.start()
+        time.sleep(0.05)  # let the thread settle in its wait
+        began = time.monotonic()
+        surface.stop()
+        assert time.monotonic() - began < 0.3
+
+
 def test_health_is_still_starting_just_inside_the_staleness_window(make_rig):
     rig = make_rig()
     rig.clock.advance(STALE_AFTER.total_seconds() - 1)
