@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from tests.fake_jellyfin import FakeJellyfin, session
+from tests.fakes import free_port
 from tests.integration import qbit_container
 from tests.integration.conftest import API_KEY, BASELINE_ALT, Snapshot
 
@@ -65,7 +66,7 @@ def start_waitarr(
 
     def start(mode: str, jellyfin: FakeJellyfin) -> Waitarr:
         name = f"waitarr-e2e-{uuid.uuid4().hex[:8]}"
-        health_port = qbit_container.free_port()
+        health_port = free_port()
         data = tmp_path / name
         data.mkdir()
         config = data / "waitarr.toml"

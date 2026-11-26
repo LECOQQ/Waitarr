@@ -10,14 +10,11 @@ from tests.fakes import (
     FakeSource,
     FakeTarget,
     FakeTaskHost,
-    MemoryStore,
-    RecordingHeartbeat,
-    RecordingNotifier,
+    make_engine,
     playback,
 )
 from waitarr.adapters.http import HttpSurface, status_document
-from waitarr.core.engine import Engine, TargetBinding, TaskBinding
-from waitarr.core.policy import GlobalHysteresisPolicy
+from waitarr.core.engine import TargetBinding, TaskBinding
 
 STALE_AFTER = timedelta(seconds=45)
 
@@ -29,15 +26,10 @@ class Rig:
         self.target = FakeTarget("main")
         self.tasks = FakeTaskHost("jellyfin", keys=("RefreshLibrary", "Other"))
         self.woken = 0
-        self.engine = Engine(
+        self.engine = make_engine(
             sources=[self.source],
             targets=[TargetBinding(self.target, THROTTLE)],
             task_hosts=[TaskBinding(self.tasks, ("RefreshLibrary", "Other"))],
-            policy=GlobalHysteresisPolicy(release_after=timedelta(minutes=3)),
-            store=MemoryStore(),
-            notifier=RecordingNotifier(),
-            heartbeat=RecordingHeartbeat(),
-            simulate=False,
             clock=self.clock,
         )
         self.surface = HttpSurface(

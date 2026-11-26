@@ -12,7 +12,6 @@ import hashlib
 import os
 import secrets
 import shutil
-import socket
 import subprocess
 import tempfile
 import time
@@ -21,6 +20,8 @@ import urllib.request
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from tests.fakes import free_port
 
 LABEL = "waitarr.test"
 LOOPBACK = "127.0.0.1"
@@ -64,12 +65,6 @@ def password_hash(password: str) -> str:
         f"@ByteArray({base64.b64encode(salt).decode()}:"
         f"{base64.b64encode(digest).decode()})"
     )
-
-
-def free_port() -> int:
-    with socket.socket() as sock:
-        sock.bind((LOOPBACK, 0))
-        return int(sock.getsockname()[1])
 
 
 def hermetic_conf(password: str, port: int) -> str:

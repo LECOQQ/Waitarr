@@ -1,6 +1,5 @@
 import ast
 import inspect
-from datetime import timedelta
 
 import pytest
 
@@ -13,12 +12,12 @@ from tests.fakes import (
     MemoryStore,
     RecordingHeartbeat,
     RecordingNotifier,
+    make_engine,
     playback,
 )
 from waitarr.core import engine as engine_module
-from waitarr.core.engine import UNREACHABLE_REMINDER, Engine, TargetBinding
+from waitarr.core.engine import UNREACHABLE_REMINDER, TargetBinding
 from waitarr.core.model import DiagnosticSeverity, Limits, TargetState
-from waitarr.core.policy import GlobalHysteresisPolicy
 from waitarr.core.ports import Severity
 from waitarr.core.reconcile import Ownership, TargetPhase
 from waitarr.core.records import StateDocumentError
@@ -42,10 +41,9 @@ class World:
         self.store = store or MemoryStore()
         self.notifier = RecordingNotifier()
         self.heartbeat = RecordingHeartbeat()
-        self.engine = Engine(
+        self.engine = make_engine(
             sources=[self.source],
             targets=[TargetBinding(t, THROTTLE) for t in self.targets],
-            policy=GlobalHysteresisPolicy(release_after=timedelta(minutes=3)),
             store=self.store,
             notifier=self.notifier,
             heartbeat=self.heartbeat,
@@ -337,14 +335,12 @@ def test_a_release_that_did_not_land_is_shown_as_releasing():
     assert status.phase is TargetPhase.RELEASING
     assert w.heartbeat.beats[-1][1].count("main=releasing") == 1
     with pytest.raises(StateDocumentError, match="still owns main"):
-        Engine(
+        make_engine(
             sources=[w.source],
             targets=[TargetBinding(FakeTarget("other"), THROTTLE)],
-            policy=GlobalHysteresisPolicy(release_after=timedelta(minutes=3)),
             store=w.store,
             notifier=w.notifier,
             heartbeat=w.heartbeat,
-            simulate=False,
             clock=w.clock,
         ).load()
 
