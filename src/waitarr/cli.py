@@ -14,7 +14,7 @@ from typing import Annotated
 import typer
 
 from waitarr import __version__
-from waitarr.bootstrap import build_engine
+from waitarr.bootstrap import build_engine, build_surface
 from waitarr.compatibility import Verdict, assess
 from waitarr.config import (
     DEFAULT_HTTP_PORT,
@@ -121,7 +121,7 @@ def run(
     chosen = mode or config.mode
     engine = build_engine(config, simulate=chosen is Mode.OBSERVE)
     try:
-        code = Service(config, engine).run()
+        code = Service(config, engine, build_surface(config, engine)).run()
     except StateDocumentError as error:
         logging.getLogger("waitarr").error(
             "Refusing to start: the state file cannot be trusted (%s).", error

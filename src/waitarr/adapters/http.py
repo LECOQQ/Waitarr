@@ -13,7 +13,7 @@ import logging
 import re
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import cast
@@ -90,7 +90,6 @@ def status_document(
     *,
     now: datetime,
     stale_after: timedelta,
-    libraries_unreadable: Sequence[str] = (),
 ) -> tuple[bool, dict[str, object]]:
     """Return (healthy, document). Healthy means a recent tick reached
     every service. `libraries_unreadable` names the sources whose library
@@ -180,7 +179,7 @@ def status_document(
             for host, owned in status.tasks.items()
         },
         "task_errors": dict(status.task_errors),
-        "libraries_unreadable": list(libraries_unreadable),
+        "libraries_unreadable": list(status.libraries_unreadable),
     }
     return healthy, document
 

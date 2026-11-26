@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from waitarr.core.model import (
     Diagnostic,
@@ -24,6 +24,7 @@ from waitarr.core.model import (
 __all__ = [
     "ActivitySource",
     "Heartbeat",
+    "LibraryReader",
     "Notification",
     "Notifier",
     "ServiceUnavailable",
@@ -58,6 +59,15 @@ class ActivitySource(Protocol):
     def playbacks(self) -> Sequence[Playback]:
         """Return every session currently playing something, paused or not."""
         ...
+
+
+@runtime_checkable
+class LibraryReader(Protocol):
+    """An `ActivitySource` that also reads library folders, and says when
+    the last read failed (the health document marks it)."""
+
+    @property
+    def libraries_unreadable(self) -> bool: ...
 
 
 class ThrottleTarget(Protocol):

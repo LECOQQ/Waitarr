@@ -6,19 +6,18 @@ import logging
 import signal
 import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from types import FrameType
+from typing import Protocol
 
 from waitarr import __version__
-from waitarr.adapters.http import HttpSurface, status_document
-from waitarr.adapters.jellyfin import JellyfinSource
 from waitarr.banner import compatibility_warnings, mode_label, startup_block
 from waitarr.config import AppConfig
-from waitarr.core.engine import Engine, utc_now
+from waitarr.core.engine import Engine
 from waitarr.core.model import Diagnostic, DiagnosticSeverity, ServiceVersion
 from waitarr.core.ports import WriteRefused
 
-__all__ = ["Service"]
+__all__ = ["HealthSurface", "Service", "SurfaceFactory"]
 
 logger = logging.getLogger("waitarr")
 
@@ -27,36 +26,35 @@ logger = logging.getLogger("waitarr")
 _DIAGNOSE_EVERY = 3600.0
 
 
+class HealthSurface(Protocol):
+    """What the service needs of the HTTP surface the wiring builds."""
+
+    @property
+    def port(self) -> int: ...
+
+    def start(self) -> None: ...
+
+    def stop(self) -> None: ...
+
+
+# Given the service's `wake`, builds the surface; None when HTTP is off.
+SurfaceFactory = Callable[[Callable[[], None]], HealthSurface]
+
+
 class Service:
-    def __init__(self, config: AppConfig, engine: Engine) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        engine: Engine,
+        surface: SurfaceFactory | None = None,
+    ) -> None:
         self._config = config
         self._engine = engine
         self._stop = threading.Event()
         self._last_diagnosis = 0.0
         self._diagnostics: frozenset[Diagnostic] = frozenset()
         self._wake = threading.Event()
-        self._http: HttpSurface | None = None
-        if config.http.port is not None:
-            self._http = HttpSurface(
-                host=config.http.host,
-                port=config.http.port,
-                status=self._status,
-                wake=self.wake,
-                webhook_enabled=config.http.webhook,
-                webhook_token=config.http.webhook_token,
-            )
-
-    def _status(self) -> tuple[bool, dict[str, object]]:
-        return status_document(
-            self._engine.status(),
-            now=utc_now(),
-            stale_after=self._config.poll_interval * 3,
-            libraries_unreadable=[
-                s.name
-                for s in self._engine.sources
-                if isinstance(s, JellyfinSource) and s.libraries_unreadable
-            ],
-        )
+        self._http = surface(self.wake) if surface is not None else None
 
     def wake(self) -> None:
         self._wake.set()

@@ -80,6 +80,21 @@ def test_module_respects_its_layer(directory, path):
     assert violations(imports, FORBIDDEN[directory]) == []
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        p
+        for p in modules("waitarr")
+        if "adapters" not in p.parts and p.name != "bootstrap.py"
+    ],
+    ids=lambda p: str(p.relative_to(SRC / "waitarr")),
+)
+def test_only_adapters_and_the_wiring_import_an_adapter(path):
+    package = ".".join(path.relative_to(SRC).with_suffix("").parts[:-1])
+    imports = imported_modules(path.read_text(encoding="utf-8"), package)
+    assert violations(imports, ("waitarr.adapters",)) == []
+
+
 # The core imports the standard library and itself, nothing else.
 CORE_ALLOWED = ("waitarr.core",)
 

@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 
 from tests.unit.test_config import MINIMAL, load
+from waitarr.bootstrap import build_surface
 from waitarr.core.model import Diagnostic, DiagnosticSeverity
 from waitarr.service import Service
 
@@ -57,7 +58,7 @@ def test_healthz_marks_the_jellyfin_source_whose_libraries_are_unreadable(
         simulate=False,
     )
     config = load(tmp_path, MINIMAL + '\n[http]\nlisten = "127.0.0.1:0"\n')
-    service = Service(config, engine)
+    service = Service(config, engine, build_surface(config, engine))
     surface = service._http
     assert surface is not None
     surface.start()

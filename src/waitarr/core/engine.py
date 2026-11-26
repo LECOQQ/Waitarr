@@ -35,6 +35,7 @@ from waitarr.core.policy import Demand, ThrottlePolicy
 from waitarr.core.ports import (
     ActivitySource,
     Heartbeat,
+    LibraryReader,
     Notification,
     Notifier,
     ServiceUnavailable,
@@ -165,6 +166,9 @@ class EngineStatus:
     # read, with the reason. Neither changes `healthy`.
     tasks: dict[str, dict[str, TaskStatus]] = field(default_factory=dict)
     task_errors: dict[str, str] = field(default_factory=dict)
+    # The sources whose library folders could not be read: marks the
+    # document, never `healthy`.
+    libraries_unreadable: tuple[str, ...] = ()
 
     @property
     def healthy(self) -> bool:
@@ -571,6 +575,11 @@ class Engine:
                 diagnostics=self._runtime.diagnostics,
                 tasks={s: dict(t) for s, t in self._runtime.tasks.items()},
                 task_errors=dict(self._runtime.task_errors),
+                libraries_unreadable=tuple(
+                    s.name
+                    for s in self._sources
+                    if isinstance(s, LibraryReader) and s.libraries_unreadable
+                ),
             )
 
     # -- internals ---------------------------------------------------------

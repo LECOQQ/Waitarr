@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 from qbit_core import QbitConfig
 
+from waitarr.adapters.http import HttpSurface, status_document
 from waitarr.adapters.jellyfin import JellyfinSource, JellyfinTasks
 from waitarr.adapters.notify import (
     FanOutNotifier,
@@ -19,7 +20,7 @@ from waitarr.adapters.notify import (
 from waitarr.adapters.qbittorrent import QbittorrentTarget
 from waitarr.adapters.state_file import JsonStateFile
 from waitarr.config import AppConfig, Mode, SourceConfig, TargetConfig
-from waitarr.core.engine import Engine, TargetBinding, TaskBinding
+from waitarr.core.engine import Engine, TargetBinding, TaskBinding, utc_now
 from waitarr.core.policy import GlobalHysteresisPolicy, ThrottlePolicy
 from waitarr.core.ports import (
     ActivitySource,
@@ -28,6 +29,7 @@ from waitarr.core.ports import (
     TaskHost,
     ThrottleTarget,
 )
+from waitarr.service import HealthSurface
 
 __all__ = [
     "POLICY_FACTORIES",
@@ -35,6 +37,7 @@ __all__ = [
     "TARGET_FACTORIES",
     "TASK_HOST_FACTORIES",
     "build_engine",
+    "build_surface",
 ]
 
 SOURCE_FACTORIES: dict[str, Callable[[SourceConfig], ActivitySource]] = {
@@ -119,4 +122,26 @@ def build_engine(config: AppConfig, *, simulate: bool | None = None) -> Engine:
         heartbeat=build_heartbeat(config),
         simulate=observe,
         failure_threshold=config.notify.failure_threshold,
+    )
+
+
+def build_surface(
+    config: AppConfig, engine: Engine
+) -> Callable[[Callable[[], None]], HealthSurface] | None:
+    """The HTTP surface of `engine`, as a function of the service's
+    `wake`; None when `[http] listen` is empty."""
+    port = config.http.port
+    if port is None:
+        return None
+    return lambda wake: HttpSurface(
+        host=config.http.host,
+        port=port,
+        status=lambda: status_document(
+            engine.status(),
+            now=utc_now(),
+            stale_after=config.poll_interval * 3,
+        ),
+        wake=wake,
+        webhook_enabled=config.http.webhook,
+        webhook_token=config.http.webhook_token,
     )
