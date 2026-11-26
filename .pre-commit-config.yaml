@@ -2,6 +2,54 @@
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
 
 repos:
+  # ai-hygiene block begin (managed block: edits here are replaced)
+  - repo: local
+    hooks:
+      - id: ai-hygiene-private
+        name: Refuse the private paths, marker and names of the harness
+        entry: >-
+          sh -c 'if command -v ai-hygiene >/dev/null 2>&1; then
+          exec ai-hygiene hook pre-commit; fi;
+          if [ -e .agents ] || [ -e .harness ]; then
+          echo "ai-hygiene-private: ai-hygiene is not on PATH, so the
+          anti-leak check cannot run in this harnessed checkout; commit refused.
+          Install it." >&2; exit 1; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+      - id: ai-hygiene-surface-msg
+        name: Refuse a private name in the commit message
+        entry: >-
+          sh -c 'if command -v ai-hygiene >/dev/null 2>&1; then
+          exec ai-hygiene hook commit-msg "$1"; fi;
+          if [ -e .agents ] || [ -e .harness ]; then
+          echo "ai-hygiene-surface-msg: ai-hygiene is not on PATH, so the
+          public surface check cannot run in this harnessed checkout; commit refused.
+          Install it." >&2; exit 1; fi' --
+        language: system
+        stages: [commit-msg]
+      - id: ai-hygiene-commit-subject
+        name: Refuse a commit subject that breaks the project's subject policy
+        entry: >-
+          sh -c 'if command -v ai-hygiene >/dev/null 2>&1; then
+          exec ai-hygiene commit-check --subject-of "$1"; fi' --
+        language: system
+        stages: [commit-msg]
+      - id: ai-hygiene-surface-push
+        name: Refuse a private name or address pushed to a public forge
+        entry: >-
+          sh -c 'if command -v ai-hygiene >/dev/null 2>&1; then
+          exec ai-hygiene hook pre-push; fi;
+          if [ -e .agents ] || [ -e .harness ]; then
+          echo "ai-hygiene-surface-push: ai-hygiene is not on PATH, so the
+          public surface check cannot run in this harnessed checkout; push refused.
+          Install it." >&2; exit 1; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+  # ai-hygiene block end
   - repo: local
     hooks:
       - id: commitizen-check
@@ -19,31 +67,3 @@ repos:
         entry: python3 scripts/check_commit_body.py --commit-msg-file
         language: system
         stages: [commit-msg]
-      - id: agent-harness-private
-        name: Refuse the private paths and marker of agent-harness
-        entry: >-
-          sh -c 'if command -v agent-harness >/dev/null 2>&1;
-          then exec agent-harness hook pre-commit; fi'
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-commit]
-      # The public surface checks of agent-harness, skipped the same way:
-      # a private name in the commit message, and a private name or
-      # address in the commits pushed to a public forge.
-      - id: agent-harness-surface-msg
-        name: Refuse a private name in the commit message
-        entry: >-
-          sh -c 'if command -v agent-harness >/dev/null 2>&1;
-          then exec agent-harness hook commit-msg "$1"; fi' --
-        language: system
-        stages: [commit-msg]
-      - id: agent-harness-surface-push
-        name: Refuse a private name or address pushed to a public forge
-        entry: >-
-          sh -c 'if command -v agent-harness >/dev/null 2>&1;
-          then exec agent-harness hook pre-push; fi'
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
