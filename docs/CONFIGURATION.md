@@ -99,11 +99,22 @@ Waitarr warns at startup when those are unlimited.
 
 `/healthz` answers `200` when the last tick is recent and reached every
 service, `503` otherwise, with a JSON body: mode, sessions, each
-service's reachability and version, each target's ownership and state, the
-tasks Waitarr owns (`tasks`), the sources whose tasks cannot be read
+service's reachability and version, each target's ownership, phase and
+state, the tasks Waitarr owns (`tasks`, each with its ownership and phase),
+the sources whose tasks cannot be read
 (`task_errors`) and the sources whose library folders cannot be read
 (`libraries_unreadable`, a list of names: it marks the body and leaves the
 status code alone).
+
+`phase` names where Waitarr stands on a target or a task: `idle` (nothing
+owned), `yielded` (a human's decision, left alone), and the others for a
+write that may not have landed (`engaging`, `releasing`, `resuming`,
+`stopping`, `starting`) or one held (`engaged`, `held`). In observation
+mode, `would-engage` and `would-hold` stand for what the write would have
+done. A target also shows `yielded-blank` and `yielded-holding`, a human's
+throttle with nothing, or Waitarr's limits, left to give back. The
+cases are in [ADR 0003](adr/0003-ownership-state-machine.md) for targets
+and [ADR 0013](adr/0013-suspend-jellyfin-tasks.md) for tasks.
 
 Who watches what (user, title, device, client) and the versions of Waitarr
 and of the services are part of the body only for a request that carries
