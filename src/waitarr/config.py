@@ -184,7 +184,7 @@ def _with_environment(
         for name in re.split(r"[,\s]+", listed.strip()):
             if not name:
                 continue
-            if not _NAME.match(name):
+            if not _NAME.fullmatch(name):
                 reader.fail(
                     f"WAITARR_QBIT_INSTANCES: '{name}' is not a valid name: "
                     "lowercase letters, digits, '-' or '_', at most 32 "
@@ -394,7 +394,7 @@ def _limits(
 
 
 def _url(reader: _Reader, where: str, raw: Any) -> str:
-    if not isinstance(raw, str) or not re.match(r"^https?://\S+$", raw):
+    if not isinstance(raw, str) or not re.fullmatch(r"https?://\S+", raw):
         reader.fail(f"{where}.url: an http:// or https:// URL is required")
         return ""
     try:
@@ -585,7 +585,7 @@ def _entries(
             reader.fail(f"{where} must be a table")
             continue
         name = entry.get("name")
-        if not isinstance(name, str) or not _NAME.match(name):
+        if not isinstance(name, str) or not _NAME.fullmatch(name):
             reader.fail(
                 f"{where}: 'name' is required: lowercase letters, digits, "
                 "'-' or '_', at most 32 characters"
