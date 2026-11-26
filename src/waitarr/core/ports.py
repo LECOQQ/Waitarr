@@ -80,6 +80,10 @@ class ThrottleTarget(Protocol):
 
         Must be idempotent: the core retries a write it cannot prove
         landed by calling `apply` again with the same state.
+
+        Must write the limits first, then the switch: the core retries
+        a write found half-way only when it left the old switch with the
+        new limits, and treats any other state as a human's.
         """
         ...
 

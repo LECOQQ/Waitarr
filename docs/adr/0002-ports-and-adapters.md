@@ -34,3 +34,11 @@ torrents will need a richer target port; that is v2's decision.
 - `tests/unit/test_architecture.py` holds the dependency rules.
 - A target must be able to `read` and idempotently `apply` a
   `TargetState`; anything with a throttle switch and limits fits.
+
+## Amendment (2026-11-26)
+
+A new source or target type is also one row in `compatibility.MATRIX`,
+beside the factory in `waitarr.bootstrap` and the parser in
+`waitarr.config`; a test ties the catalogues together. A policy is one
+entry in `bootstrap.POLICY_FACTORIES`. The core's dependency rule is an
+allow-list: the standard library and `waitarr.core` only.
