@@ -660,7 +660,9 @@ class Engine:
                 _describe_state(confirmed),
             )
             return False
-        self._set_record(target.name, replace(step.record, pending=None))
+        self._set_record(
+            target.name, replace(step.record, pending=None, pending_from=None)
+        )
         self._save()
         return True
 
