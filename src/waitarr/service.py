@@ -11,6 +11,7 @@ from types import FrameType
 
 from waitarr import __version__
 from waitarr.adapters.http import HttpSurface, status_document
+from waitarr.adapters.jellyfin import JellyfinSource
 from waitarr.banner import compatibility_warnings, startup_block
 from waitarr.config import AppConfig
 from waitarr.core.engine import Engine, utc_now
@@ -43,7 +44,15 @@ class Service:
                 # The rule reads the lambda body as a `return` in __init__.
                 # nosemgrep: return-in-init
                 status=lambda: status_document(
-                    engine.status(), now=utc_now(), stale_after=stale
+                    engine.status(),
+                    now=utc_now(),
+                    stale_after=stale,
+                    libraries_unreadable=[
+                        s.name
+                        for s in engine.sources
+                        if isinstance(s, JellyfinSource)
+                        and s.libraries_unreadable
+                    ],
                 ),
                 wake=self.wake,
                 webhook_enabled=config.http.webhook,

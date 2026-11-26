@@ -186,6 +186,22 @@ def test_status_with_the_token_shows_the_sessions(make_rig, monkeypatch):
     assert "alice" in known.output
 
 
+def test_health_marks_a_source_whose_library_folders_cannot_be_read(make_rig):
+    rig = make_rig()
+    rig.tick()
+    status = rig.engine.status()
+    _, plain = status_document(status, now=rig.clock(), stale_after=STALE_AFTER)
+    healthy, marked = status_document(
+        status,
+        now=rig.clock(),
+        stale_after=STALE_AFTER,
+        libraries_unreadable=["jellyfin"],
+    )
+    assert plain["libraries_unreadable"] == []
+    assert marked["libraries_unreadable"] == ["jellyfin"]
+    assert healthy is True
+
+
 def test_health_is_503_when_the_source_is_unreachable(make_rig):
     rig = make_rig()
     rig.tick()
