@@ -13,7 +13,7 @@ superseded record stays, marked as such, and names its successor.
 | [0006](0006-alternative-limits.md) | Throttle with alternative limits that Waitarr sets and restores |
 | [0007](0007-playback-filter.md) | Which playbacks count: allow and ignore lists |
 | [0008](0008-bootstrap-on-main.md) | The repository is bootstrapped on `main` |
-| [0009](0009-harness.md) | Harness: starter-kits baseline, qbit-ops gates |
+| [0009](0009-harness.md) | Harness: project-template baseline, qbit-ops gates |
 | [0010](0010-polling-first-webhook-as-nudge.md) | Polling decides; the webhook only wakes the loop |
 | [0011](0011-image-distribution.md) | The image is built by CI, published only from a release |
 | [0012](0012-active-by-default.md) | Active by default, observation on demand |
