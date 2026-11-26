@@ -15,7 +15,7 @@ from tests.fakes import (
     RecordingNotifier,
     playback,
 )
-from waitarr import cli
+from waitarr import bootstrap, cli
 from waitarr.compatibility import Assessment, Verdict
 from waitarr.core.engine import Engine, TargetBinding, TaskBinding
 from waitarr.core.model import ServiceVersion
@@ -45,7 +45,7 @@ class Wiring:
         self.store = MemoryStore()
         self.built: list[bool | None] = []
         self.keys = keys
-        monkeypatch.setattr(cli, "build_engine", self.build)
+        monkeypatch.setattr(bootstrap, "build_engine", self.build)
 
     def build(self, config, *, simulate=None):
         self.built.append(simulate)
@@ -186,3 +186,25 @@ def test_status_refuses_a_url_that_is_not_http_or_https(monkeypatch, url):
     assert result.exit_code == 2
     assert "http" in result.output
     assert "https" in result.output
+
+
+def test_the_health_probe_loads_no_adapter():
+    # The container probe starts a process every minute: it must not pay
+    # for the HTTP clients of the services it never talks to.
+    import subprocess
+    import sys
+
+    code = (
+        "import sys\n"
+        "from typer.testing import CliRunner\n"
+        "from waitarr import cli\n"
+        "CliRunner().invoke(cli.app, "
+        "['status', '--quiet', '--url', 'http://127.0.0.1:1'])\n"
+        "print(sorted(m for m in sys.modules if m.split('.')[0] in "
+        "('requests', 'qbittorrentapi', 'qbit_core') "
+        "or m.startswith('waitarr.adapters')))\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
+    assert out.stdout.strip() == "[]"

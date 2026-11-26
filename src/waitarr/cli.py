@@ -14,7 +14,6 @@ from typing import Annotated
 import typer
 
 from waitarr import __version__
-from waitarr.bootstrap import build_engine, build_surface
 from waitarr.compatibility import Verdict, assess
 from waitarr.config import (
     DEFAULT_HTTP_PORT,
@@ -114,6 +113,7 @@ def run(
     ] = None,
 ) -> None:
     """Run the service until stopped (SIGTERM or Ctrl-C)."""
+    from waitarr.bootstrap import build_engine, build_surface
     from waitarr.service import Service
 
     config = _load(config_path)
@@ -133,6 +133,8 @@ def run(
 @app.command()
 def check(config_path: ConfigOption = None) -> None:
     """Validate the config and read every service once. Never writes."""
+    from waitarr.bootstrap import build_engine
+
     config = _load(config_path)
     _setup_logging("WARNING")
     engine = build_engine(config, simulate=True)
@@ -276,6 +278,8 @@ def restore(
             err=True,
         )
         raise typer.Exit(EXIT_FAILURE)
+    from waitarr.bootstrap import build_engine
+
     config = _load(config_path)
     _setup_logging(config.log_level)
     engine = build_engine(config, simulate=False)
