@@ -13,6 +13,7 @@ from waitarr.bootstrap import (
 from waitarr.compatibility import MATRIX
 from waitarr.config import (
     DEFAULT_TASKS,
+    POLICY_STRATEGIES,
     SOURCE_TYPES,
     TARGET_TYPES,
     Mode,
@@ -82,6 +83,7 @@ def test_the_four_type_catalogues_name_the_same_types():
     assert set(TARGET_TYPES) == set(TARGET_FACTORIES)
     assert set(TASK_HOST_FACTORIES) <= set(SOURCE_FACTORIES)
     assert set(MATRIX) == set(SOURCE_FACTORIES) | set(TARGET_FACTORIES)
+    assert set(POLICY_STRATEGIES) == set(POLICY_FACTORIES)
 
 
 def test_the_configured_strategy_picks_the_policy(tmp_path, monkeypatch):

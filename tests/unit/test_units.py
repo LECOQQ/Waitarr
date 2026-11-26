@@ -105,6 +105,20 @@ def test_format_duration_round_trips_through_parse_duration(text):
     assert format_duration(parse_duration(text)) == text
 
 
+@pytest.mark.parametrize(
+    "value", ["9" * 400, "99999999999999999999h", 10**30, 1e300, [1], {}]
+)
+def test_parse_duration_refuses_what_it_cannot_hold_with_a_value_error(value):
+    with pytest.raises(ValueError):
+        parse_duration(value)
+
+
+@pytest.mark.parametrize("value", ["9" * 400, "9" * 400 + "GiB"])
+def test_parse_rate_refuses_an_infinite_rate_with_a_value_error(value):
+    with pytest.raises(ValueError):
+        parse_rate(value)
+
+
 @pytest.mark.parametrize("value", [512, 1024, 1536, 5 * 1024**2])
 def test_format_rate_output_parses_back(value):
     assert parse_rate(format_rate(value)) == value

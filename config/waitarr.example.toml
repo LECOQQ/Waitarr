@@ -23,7 +23,7 @@ poll_interval = "15s"
 
 # What Waitarr owns, so a restart or a crash gives it back. Keep it on a
 # volume that survives the container.
-state_file = "/data/state.json"
+state_file = "/data/waitarr-state.json"
 
 # Give everything back when Waitarr stops.
 restore_on_exit = true
