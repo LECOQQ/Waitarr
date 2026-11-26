@@ -28,11 +28,21 @@ from waitarr.core.ports import ServiceUnavailable
 from waitarr.core.records import StateDocumentError
 from waitarr.core.units import format_rate
 
-__all__ = ["app", "main"]
+__all__ = ["LIBRARY_LEVELS", "app", "main"]
 
 EXIT_OK = 0
 EXIT_FAILURE = 1
 EXIT_CONFIG = 2
+
+# Library retry chatter would repeat every tick while a service is down;
+# Waitarr reports outages itself, once, through its own logger. The one
+# line qbittorrent-api must still show is its warning when it falls back
+# from https to plain http.
+LIBRARY_LEVELS = {
+    "urllib3": logging.ERROR,
+    "requests": logging.ERROR,
+    "qbittorrentapi": logging.WARNING,
+}
 
 app = typer.Typer(
     add_completion=False,
@@ -82,13 +92,8 @@ def _setup_logging(level: str) -> None:
         stream=sys.stdout,
         force=True,
     )
-    # Library retry chatter would repeat every tick while a service is down;
-    # Waitarr reports outages itself, once, through its own logger.
-    for name in ("urllib3", "requests"):
-        logging.getLogger(name).setLevel(logging.ERROR)
-    # qbittorrent-api only warns once, when it falls back from https to
-    # plain http: the operator must see it.
-    logging.getLogger("qbittorrentapi").setLevel(logging.WARNING)
+    for name, library_level in LIBRARY_LEVELS.items():
+        logging.getLogger(name).setLevel(library_level)
 
 
 def _load(config_path: Path | None) -> AppConfig:

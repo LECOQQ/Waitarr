@@ -1,4 +1,3 @@
-import logging
 from datetime import timedelta
 
 import pytest
@@ -31,15 +30,6 @@ type = "qbittorrent"
 url = "http://qbittorrent:8080"
 username = "admin"
 """
-
-
-@pytest.fixture(autouse=True)
-def _restore_logging():
-    root = logging.getLogger()
-    level, handlers = root.level, root.handlers[:]
-    yield
-    root.handlers[:] = handlers
-    root.setLevel(level)
 
 
 class Wiring:
