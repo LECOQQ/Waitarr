@@ -17,6 +17,15 @@ secretGroup = 1
 tags = ["waitarr"]
 
 [[rules]]
+# ADR 0005: the ntfy topic, webhook and Healthchecks ping URLs grant
+# access like a token does, so a literal one is a secret too.
+id = "waitarr-destination-url"
+description = "A Waitarr notification destination URL assigned a literal value"
+regex = '''(?i)WAITARR_(?:NOTIFY_NTFY_URL|NOTIFY_WEBHOOK_URL|HEALTHCHECKS_URL)["']?\s*[=:]\s*["']?(https?://[^\s"'$]+)'''
+secretGroup = 1
+tags = ["waitarr"]
+
+[[rules]]
 # Private files of agent-harness never belong in this repository.
 id = "ai-hygiene-private-marker"
 description = "Private file of agent-harness committed to a product"
