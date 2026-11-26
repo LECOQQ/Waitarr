@@ -16,6 +16,7 @@ from tests.fakes import (
 )
 from waitarr import cli
 from waitarr.core.engine import Engine, TargetBinding, TaskBinding
+from waitarr.core.model import ServiceVersion
 from waitarr.core.policy import GlobalHysteresisPolicy
 
 CONFIG = """
@@ -97,6 +98,18 @@ def test_check_survives_an_unreadable_task_host_with_a_warning(wiring):
         ln.startswith("[WARN]") and "jellyfin" in ln
         for ln in result.output.splitlines()
     )
+
+
+def test_check_fails_on_a_version_it_cannot_read(wiring, monkeypatch):
+    monkeypatch.setattr(
+        FakeSource, "version", lambda self: ServiceVersion("Jellyfin", "banana")
+    )
+    result = wiring.run("check")
+    assert any(
+        ln.startswith("[FAIL]") and "unreadable version" in ln
+        for ln in result.output.splitlines()
+    )
+    assert result.exit_code == 1
 
 
 def test_check_never_writes_to_the_task_host(wiring):
