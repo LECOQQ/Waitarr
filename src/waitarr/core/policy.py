@@ -150,6 +150,10 @@ class GlobalHysteresisPolicy:
         updated: dict[str, datetime] = {}
         for target in targets:
             last = now if counted else memory.get(target)
+            if last is not None and last > now:
+                # A clock set back, or a file from the future: the memory
+                # cannot be newer than now, or it would hold without a read.
+                last = now
             holding = last is not None and now - last < self.release_after
             if last is not None and holding:
                 updated[target] = last

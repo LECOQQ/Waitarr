@@ -31,6 +31,18 @@ def test_hold_lasts_release_after_then_lets_go():
     assert released.memory == {}
 
 
+def test_a_memory_in_the_future_is_clamped_to_now_and_expires():
+    clock = FakeClock()
+    policy = _policy()
+    future = clock() + timedelta(hours=2)
+    held = policy.decide([], ["a"], clock(), {"a": future})
+    assert held.demands["a"].throttle
+    assert held.memory == {"a": clock()}
+    clock.advance(180)
+    released = policy.decide([], ["a"], clock(), held.memory)
+    assert not released.demands["a"].throttle
+
+
 def test_paused_sessions_do_not_count_by_default():
     clock = FakeClock()
     paused = [playback(paused=True)]
