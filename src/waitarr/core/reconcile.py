@@ -1,24 +1,5 @@
-"""Decide what to do with one target, given what Waitarr owns and what
-it observes. Pure: no I/O, no clock.
-
-Ownership is the safety model. Waitarr only ever undoes its own change:
-
-- `IDLE`: Waitarr owns nothing on this target.
-- `ENGAGED`: Waitarr throttled the target and remembers the state it
-  found (`before`), to give it back.
-- `YIELDED`: a human decided (the target was already throttled, or its
-  state changed under Waitarr). Waitarr touches nothing until no
-  playback asks for a throttle any more; it then forgets, and the next
-  playback starts from a clean slate. If the human switched the throttle
-  off but left Waitarr's limits in place, those limits are put back as
-  found, and the switch is left as the human set it.
-
-`pending` is a write that may not have landed (a crash or an error
-between "decided" and "confirmed"), and `pending_from` the state it was
-decided from. It is retried only while the target is still in that
-state, or half-way (limits written, switch not yet): any other state is
-a human's, and Waitarr yields.
-"""
+"""Decide what to do with one target, given what Waitarr owns and what it
+observes; pure, and the machine is ADR 0003 (`TargetPhase` names its states)."""
 
 from __future__ import annotations
 
@@ -31,9 +12,13 @@ __all__ = [
     "Action",
     "Ownership",
     "Step",
+    "TargetPhase",
     "TargetRecord",
+    "holds_target",
+    "normalized",
     "reconcile",
     "restore",
+    "target_phase",
 ]
 
 
@@ -41,6 +26,36 @@ class Ownership(StrEnum):
     IDLE = "idle"
     ENGAGED = "engaged"
     YIELDED = "yielded"
+
+
+class TargetPhase(StrEnum):
+    """The seven states of a target, each one shape of `TargetRecord`.
+
+    `pending` is a write that may not have landed, `pending_from` the state
+    it was decided from; the two come together, and a write is retried only
+    from that state or half-way (limits written, switch not yet).
+    """
+
+    IDLE = "idle"  # nothing owned
+    ENGAGING = "engaging"  # throttled by Waitarr, write not yet confirmed
+    ENGAGED = "engaged"  # throttled by Waitarr; `before` is given back
+    WOULD_ENGAGE = "would-engage"  # ENGAGED, in observation mode
+    RELEASING = "releasing"  # giving `before` back, write not yet confirmed
+    RESUMING = "resuming"  # putting limits back after a human switched off
+    YIELDED_BLANK = "yielded-blank"  # a human's throttle: nothing to give back
+    YIELDED_HOLDING = "yielded-holding"  # a human's, Waitarr's limits remain
+
+
+_FIELDS = ("before", "applied", "pending", "pending_from")
+_SHAPES = {
+    (Ownership.IDLE, False, False, False, False): TargetPhase.IDLE,
+    (Ownership.ENGAGED, True, True, True, True): TargetPhase.ENGAGING,
+    (Ownership.ENGAGED, True, True, False, False): TargetPhase.ENGAGED,
+    (Ownership.IDLE, True, True, True, True): TargetPhase.RELEASING,
+    (Ownership.IDLE, False, False, True, True): TargetPhase.RESUMING,
+    (Ownership.YIELDED, False, False, False, False): TargetPhase.YIELDED_BLANK,
+    (Ownership.YIELDED, True, True, False, False): TargetPhase.YIELDED_HOLDING,
+}
 
 
 class Action(StrEnum):
@@ -72,6 +87,48 @@ class Step:
     record: TargetRecord
     action: Action
     write: TargetState | None = None
+
+
+def normalized(record: TargetRecord) -> TargetRecord:
+    """The record without what a settled write leaves behind: an origin
+    with no write, and everything an idle target no longer owns."""
+    if record.pending is not None:
+        return record
+    if record.ownership is Ownership.IDLE:
+        return TargetRecord()
+    return replace(record, pending_from=None)
+
+
+def target_phase(
+    record: TargetRecord, *, simulate: bool = False
+) -> TargetPhase:
+    """The phase of a record; `ValueError` for a shape the machine never
+    produces (a `pending` without its origin, one on a yielded target...)."""
+    kept = normalized(record)
+    shape = (
+        kept.ownership,
+        kept.before is not None,
+        kept.applied is not None,
+        kept.pending is not None,
+        kept.pending_from is not None,
+    )
+    try:
+        phase = _SHAPES[shape]
+    except KeyError:
+        held = [n for n in _FIELDS if getattr(record, n) is not None]
+        raise ValueError(
+            f"not a state Waitarr produces: {record.ownership.value} "
+            f"with {', '.join(held) or 'nothing'}"
+        ) from None
+    if simulate and phase is TargetPhase.ENGAGED:
+        return TargetPhase.WOULD_ENGAGE
+    return phase
+
+
+def holds_target(record: TargetRecord) -> bool:
+    """Whether the target is Waitarr's to see out: any phase but IDLE (a
+    yielded one included). The one answer, for every reader."""
+    return target_phase(record) is not TargetPhase.IDLE
 
 
 def _writing(

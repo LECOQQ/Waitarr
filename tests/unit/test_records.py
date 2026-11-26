@@ -6,7 +6,14 @@ from itertools import product
 import pytest
 
 from waitarr.core.model import Limits, TargetState
-from waitarr.core.reconcile import Ownership, TargetRecord, reconcile, restore
+from waitarr.core.reconcile import (
+    Ownership,
+    TargetPhase,
+    TargetRecord,
+    normalized,
+    reconcile,
+    restore,
+)
 from waitarr.core.records import (
     SCHEMA_VERSION,
     StateDocument,
@@ -25,7 +32,11 @@ def test_an_engaged_record_survives_an_encode_decode_round_trip():
     document = StateDocument(
         records={
             "main": TargetRecord(
-                Ownership.ENGAGED, before=OFF, applied=HELD, pending=HELD
+                Ownership.ENGAGED,
+                before=OFF,
+                applied=HELD,
+                pending=HELD,
+                pending_from=OFF,
             ),
             "second": TargetRecord(),
         },
@@ -37,12 +48,54 @@ def test_an_engaged_record_survives_an_encode_decode_round_trip():
     )
 
 
-def test_a_yielded_record_with_a_pending_write_round_trips():
-    record = TargetRecord(
-        Ownership.YIELDED, before=OFF, applied=HELD, pending=OFF
-    )
-    decoded = decode_state(encode_state(StateDocument({"main": record})))
-    assert decoded.records["main"] == record
+@pytest.mark.parametrize(
+    "record",
+    [
+        TargetRecord(Ownership.YIELDED, before=OFF, applied=HELD, pending=OFF),
+        TargetRecord(
+            Ownership.YIELDED,
+            before=OFF,
+            applied=HELD,
+            pending=OFF,
+            pending_from=HELD,
+        ),
+        TargetRecord(Ownership.ENGAGED, before=OFF, applied=HELD, pending=HELD),
+        TargetRecord(pending=OFF),
+        TargetRecord(Ownership.YIELDED, before=OFF),
+    ],
+    ids=[
+        "yielded-pending",
+        "yielded-pending-from",
+        "engaged-pending-without-origin",
+        "idle-pending-without-origin",
+        "yielded-half-remembered",
+    ],
+)
+def test_a_record_the_machine_never_writes_is_refused(record):
+    with pytest.raises(StateDocumentError, match="main"):
+        decode_state(encode_state(StateDocument({"main": record})))
+
+
+@pytest.mark.parametrize(
+    ("written", "read"),
+    [
+        (
+            TargetRecord(
+                Ownership.ENGAGED, before=OFF, applied=HELD, pending_from=OFF
+            ),
+            TargetRecord(Ownership.ENGAGED, before=OFF, applied=HELD),
+        ),
+        (TargetRecord(pending_from=OFF), TargetRecord()),
+        (
+            TargetRecord(before=OFF, applied=HELD, pending_from=HELD),
+            TargetRecord(),
+        ),
+        (TargetRecord(before=OFF, applied=HELD), TargetRecord()),
+    ],
+)
+def test_what_a_settled_write_leaves_behind_is_dropped_when_read(written, read):
+    decoded = decode_state(encode_state(StateDocument({"main": written})))
+    assert decoded.records["main"] == read
 
 
 SLOW = Limits(1024, 2048)
@@ -63,12 +116,12 @@ def _shape(record: TargetRecord) -> tuple[str, ...]:
     )
 
 
-def _reached(
+def _records(
     *, simulate: bool, confirm: Callable[[TargetRecord], TargetRecord]
-) -> set[tuple[str, ...]]:
-    """Every record shape `reconcile` leads to from a blank record, over
-    every observed state and demand; `confirm` is what the engine does to
-    the record once a write landed."""
+) -> set[TargetRecord]:
+    """Every record `reconcile` leads to from a blank record, over every
+    observed state and demand; `confirm` is what the engine does to the
+    record once a write landed."""
     seen = {TargetRecord()}
     todo = [TargetRecord()]
     while todo:
@@ -95,7 +148,20 @@ def _reached(
                     if following not in seen:
                         seen.add(following)
                         todo.append(following)
-    return {_shape(record) for record in seen}
+    return seen
+
+
+def _reached(
+    *, simulate: bool, confirm: Callable[[TargetRecord], TargetRecord]
+) -> set[tuple[str, ...]]:
+    return {
+        _shape(record)
+        for record in _records(simulate=simulate, confirm=confirm)
+    }
+
+
+def _confirm_now(record: TargetRecord) -> TargetRecord:
+    return replace(record, pending=None, pending_from=None)
 
 
 def _confirm_v010(record: TargetRecord) -> TargetRecord:
@@ -129,27 +195,71 @@ def test_observation_mode_reaches_five_shapes():
     }
 
 
-def test_every_record_a_published_version_wrote_round_trips():
-    records = [TargetRecord()]
-    for record in records:
-        for observed, throttle in product(_OBSERVED, (True, False)):
-            for step in (
-                reconcile(
-                    record,
-                    observed,
-                    throttle=throttle,
-                    throttle_limits=SLOW,
-                    simulate=False,
-                ),
-                restore(record, observed),
-            ):
-                for following in (step.record, _confirm_v010(step.record)):
-                    if following not in records:
-                        records.append(following)
+def test_every_record_a_published_version_wrote_is_read_without_loss():
+    records = _records(simulate=False, confirm=_confirm_v010)
     assert len(records) >= 10
     for record in records:
-        document = StateDocument({"main": record})
-        assert decode_state(encode_state(document)) == document
+        decoded = decode_state(
+            encode_state(StateDocument({"main": record}))
+        ).records["main"]
+        for observed, throttle in product(_OBSERVED, (True, False)):
+            args = {"throttle": throttle, "throttle_limits": SLOW}
+            for read, written in (
+                (
+                    reconcile(decoded, observed, simulate=False, **args),
+                    reconcile(record, observed, simulate=False, **args),
+                ),
+                (restore(decoded, observed), restore(record, observed)),
+            ):
+                assert (read.action, read.write) == (
+                    written.action,
+                    written.write,
+                )
+                assert normalized(read.record) == normalized(written.record)
+
+
+def test_the_shapes_the_decoder_accepts_are_the_shapes_the_machine_reaches():
+    accepted = set()
+    for ownership, present in product(
+        Ownership, product((False, True), repeat=4)
+    ):
+        before, applied, pending, origin = (OFF if p else None for p in present)
+        record = TargetRecord(ownership, before, applied, pending, origin)
+        try:
+            decoded = decode_state(
+                encode_state(StateDocument({"main": record}))
+            ).records["main"]
+        except StateDocumentError:
+            continue
+        accepted.add(_shape(decoded))
+    reached = set()
+    for simulate, confirm in product(
+        (False, True), (_confirm_v010, _confirm_now)
+    ):
+        reached |= {
+            _shape(normalized(r))
+            for r in _records(simulate=simulate, confirm=confirm)
+        }
+    assert accepted == reached
+    assert len(reached) == len(TargetPhase) - 1
+
+
+def test_the_task_records_the_decoder_accepts_are_the_ones_the_machine_makes():
+    accepted = set()
+    for ownership, write in product(TaskOwnership, (None, *TaskWrite)):
+        entry = {"ownership": ownership.value, "pending": write}
+        try:
+            decode_state(_task_document(entry))
+        except StateDocumentError:
+            continue
+        accepted.add((ownership, write))
+    assert accepted == {
+        (TaskOwnership.IDLE, None),
+        (TaskOwnership.STOPPED, None),
+        (TaskOwnership.STOPPED, TaskWrite.STOP),
+        (TaskOwnership.STOPPED, TaskWrite.START),
+        (TaskOwnership.YIELDED, None),
+    }
 
 
 def test_memory_without_a_record_is_kept():
