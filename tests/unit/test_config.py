@@ -165,6 +165,18 @@ def test_invalid_names_are_refused(tmp_path, name):
     assert mentions(problems(tmp_path, text), "'name' is required")
 
 
+def test_a_name_with_a_trailing_newline_is_refused(tmp_path):
+    text = MINIMAL.replace('name = "main"', 'name = "main\\n"')
+    assert mentions(problems(tmp_path, text), "'name' is required")
+
+
+def test_a_url_with_a_trailing_newline_is_refused(tmp_path):
+    text = MINIMAL.replace(
+        "http://qbittorrent:8080", "http://qbittorrent:8080\\n"
+    )
+    assert mentions(problems(tmp_path, text), "an http:// or https:// URL")
+
+
 def test_a_name_cannot_be_used_twice_across_sources_and_targets(tmp_path):
     text = MINIMAL.replace('name = "main"', 'name = "jellyfin"')
     assert mentions(problems(tmp_path, text), "already used")
