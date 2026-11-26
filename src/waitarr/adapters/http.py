@@ -7,10 +7,12 @@ carries a decision. Polling stays the source of truth.
 
 from __future__ import annotations
 
+import contextlib
 import hmac
 import json
 import logging
 import re
+import socket
 import threading
 import time
 from collections.abc import Callable
@@ -33,6 +35,9 @@ _QUERY = re.compile(r"\?\S*")
 _URL = re.compile(r"https?://[^\s)]*[^\s).,;]")
 # A webhook flood costs at most one extra poll per this many seconds.
 _WEBHOOK_MIN_INTERVAL = 5.0
+# The server thread wakes this often when nothing arrives: `stop` does not
+# wait for it, it wakes the thread itself.
+_IDLE_WAKEUP = 1.0
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -273,7 +278,9 @@ class HttpSurface:
         self._server = ThreadingHTTPServer((host, port), Handler)
         self._server.daemon_threads = True
         self._thread = threading.Thread(
-            target=lambda: self._server.serve_forever(poll_interval=0.1),
+            target=lambda: self._server.serve_forever(
+                poll_interval=_IDLE_WAKEUP
+            ),
             name="waitarr-http",
             daemon=True,
         )
@@ -308,5 +315,13 @@ class HttpSurface:
         self._thread.start()
 
     def stop(self) -> None:
-        self._server.shutdown()
+        # `shutdown` returns once the server thread notices the request,
+        # which it only does when it wakes: knock on the socket until it does.
+        closing = threading.Thread(target=self._server.shutdown)
+        closing.start()
+        while closing.is_alive():
+            with contextlib.suppress(OSError):
+                host, port = self._server.socket.getsockname()[:2]
+                socket.create_connection((host, port), timeout=1).close()
+            closing.join(0.02)
         self._server.server_close()
