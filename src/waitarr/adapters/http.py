@@ -16,6 +16,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import cast
 from urllib.parse import parse_qs, urlsplit
 
 from waitarr import __version__
@@ -28,6 +29,7 @@ logger = logging.getLogger("waitarr")
 
 _MAX_BODY = 1024 * 1024
 _QUERY = re.compile(r"\?\S*")
+_URL = re.compile(r"https?://[^\s)]*[^\s).,;]")
 # A webhook flood costs at most one extra poll per this many seconds.
 _WEBHOOK_MIN_INTERVAL = 5.0
 
@@ -43,6 +45,42 @@ def _version(value: ServiceVersion | None) -> dict[str, object] | None:
         "product": value.product,
         "version": value.version,
         "api_version": value.api_version,
+    }
+
+
+def _without_urls(text: str) -> str:
+    return _URL.sub("<url>", text)
+
+
+def public_view(document: dict[str, object]) -> dict[str, object]:
+    """What a caller without the token may read: enough to judge the
+    health, but not who watches what, nor where the services are."""
+    services = cast("dict[str, dict[str, object]]", document["services"])
+    warnings = cast("list[dict[str, object]]", document["warnings"])
+    task_errors = cast("dict[str, str]", document["task_errors"])
+    sessions = cast("list[dict[str, object]]", document["sessions"])
+    return {
+        **document,
+        "sessions": [
+            {key: s[key] for key in ("source", "paused")} for s in sessions
+        ],
+        "services": {
+            name: {
+                **service,
+                "error": (
+                    _without_urls(str(service["error"]))
+                    if service["error"]
+                    else None
+                ),
+            }
+            for name, service in services.items()
+        },
+        "warnings": [
+            {**w, "message": _without_urls(str(w["message"]))} for w in warnings
+        ],
+        "task_errors": {
+            host: _without_urls(error) for host, error in task_errors.items()
+        },
     }
 
 
@@ -148,18 +186,26 @@ class HttpSurface:
         surface = self
 
         class Handler(BaseHTTPRequestHandler):
-            server_version = f"Waitarr/{__version__}"
+            def version_string(self) -> str:
+                # No version of Waitarr or of Python for a passer-by.
+                return "Waitarr"
 
             def do_GET(self) -> None:  # noqa: N802 -- http.server's naming
                 if urlsplit(self.path).path != "/healthz":
                     self._reply(404, {"error": "not found"})
                     return
                 healthy, document = surface._status()
+                if not surface._holds_token(
+                    self.headers.get("X-Waitarr-Token")
+                ):
+                    document = public_view(document)
                 self._reply(200 if healthy else 503, document)
 
             def do_POST(self) -> None:  # noqa: N802
                 parts = urlsplit(self.path)
-                self._drain()
+                if not self._drain():
+                    self._reply(400, {"error": "bad Content-Length"})
+                    return
                 if parts.path != "/hooks/jellyfin" or not surface._webhook:
                     self._reply(404, {"error": "not found"})
                     return
@@ -172,10 +218,17 @@ class HttpSurface:
                 surface._nudge()
                 self._reply(202, {"status": "poll scheduled"})
 
-            def _drain(self) -> None:
-                length = int(self.headers.get("Content-Length") or 0)
+            def _drain(self) -> bool:
+                """Read the body; False when its length is not a size."""
+                try:
+                    length = int(self.headers.get("Content-Length") or 0)
+                except ValueError:
+                    return False
+                if length < 0:
+                    return False
                 if 0 < length <= _MAX_BODY:
                     self.rfile.read(length)
+                return True
 
             def _reply(self, code: int, body: dict[str, object]) -> None:
                 payload = json.dumps(body, indent=2).encode("utf-8")
@@ -227,6 +280,11 @@ class HttpSurface:
                 return
             self._last_nudge = now
         self._wake()
+
+    def _holds_token(self, header: str | None) -> bool:
+        """The token is the key to the detail of `/healthz`: without a
+        configured token, nobody holds it."""
+        return bool(self._token) and self._authorised(header, None)
 
     def _authorised(self, header: str | None, query: str | None) -> bool:
         if not self._token:

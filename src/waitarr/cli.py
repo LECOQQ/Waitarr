@@ -15,7 +15,13 @@ import typer
 from waitarr import __version__
 from waitarr.bootstrap import build_engine
 from waitarr.compatibility import Verdict, assess
-from waitarr.config import AppConfig, ConfigError, Mode, load_config
+from waitarr.config import (
+    DEFAULT_HTTP_PORT,
+    AppConfig,
+    ConfigError,
+    Mode,
+    load_config,
+)
 from waitarr.core.engine import TaskBinding
 from waitarr.core.ports import ServiceUnavailable
 from waitarr.core.records import StateDocumentError
@@ -201,18 +207,28 @@ def status(
         typer.Option(
             envvar="WAITARR_STATUS_URL", help="Base URL of a running Waitarr."
         ),
-    ] = "http://127.0.0.1:8778",
+    ] = f"http://127.0.0.1:{DEFAULT_HTTP_PORT}",
+    token: Annotated[
+        str | None,
+        typer.Option(
+            envvar="WAITARR_WEBHOOK_TOKEN",
+            help="Webhook token: unlocks who watches what and the URLs. "
+            "Set it in the environment.",
+        ),
+    ] = None,
     quiet: Annotated[
         bool, typer.Option("--quiet", "-q", help="Exit code only.")
     ] = False,
 ) -> None:
     """Query a running Waitarr's /healthz (exit 0 when healthy)."""
+    request = urllib.request.Request(  # noqa: S310 -- the operator's own --url
+        f"{url.rstrip('/')}/healthz",
+        headers={"X-Waitarr-Token": token} if token else {},
+    )
     try:
         # `url` is the operator's own --url, a local health probe.
         # nosemgrep: dynamic-urllib-use-detected
-        with urllib.request.urlopen(
-            f"{url.rstrip('/')}/healthz", timeout=5
-        ) as r:
+        with urllib.request.urlopen(request, timeout=5) as r:
             code, body = r.status, r.read()
     except urllib.error.HTTPError as error:
         code, body = error.code, error.read()

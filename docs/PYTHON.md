@@ -32,3 +32,7 @@ The state file defaults to `waitarr-state.json` in the working directory;
 set `WAITARR_STATE_FILE` to keep it elsewhere. To run it as a service,
 wrap `waitarr run` in a systemd unit with `KillSignal=SIGTERM` and a
 `TimeoutStopSec` of 30 seconds, so stopping gives the speed back.
+
+`GET /healthz` listens on every interface by default (`[http] listen`,
+`WAITARR_HTTP_LISTEN`): outside a container, set it to the address that
+needs it, such as `127.0.0.1:8778`.

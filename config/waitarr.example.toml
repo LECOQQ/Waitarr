@@ -58,7 +58,9 @@ download = "1KiB"
 upload = "1KiB"
 
 [http]
-# GET /healthz for supervision. "" disables the endpoint.
+# GET /healthz for supervision. "" disables the endpoint. 0.0.0.0 is every
+# interface: outside a container, prefer "127.0.0.1:8778". Who watches what
+# is served only to a request carrying WAITARR_WEBHOOK_TOKEN.
 listen = "0.0.0.0:8778"
 # POST /hooks/jellyfin from Jellyfin's webhook plugin makes Waitarr
 # react at once instead of at the next poll. Polling stays the safety

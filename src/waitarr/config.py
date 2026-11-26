@@ -545,7 +545,8 @@ def _listen(reader: _Reader, raw: Any) -> tuple[str, int | None]:
     host, _, port = text.rpartition(":")
     if not port.isdigit() or not 0 <= int(port) <= 65535:
         reader.fail(
-            f"http.listen: expected 'host:port' (e.g. '0.0.0.0:8778'), "
+            f"http.listen: expected 'host:port' "
+            f"(e.g. '0.0.0.0:{DEFAULT_HTTP_PORT}'), "
             f"or '' to disable, got {text!r}"
         )
         return "", None
@@ -670,7 +671,8 @@ def parse_config(
     host, port = _listen(
         reader,
         environ.get(
-            "WAITARR_HTTP_LISTEN", http_raw.get("listen", "0.0.0.0:8778")
+            "WAITARR_HTTP_LISTEN",
+            http_raw.get("listen", f"0.0.0.0:{DEFAULT_HTTP_PORT}"),
         ),
     )
     webhook = http_raw.get("webhook", False)
