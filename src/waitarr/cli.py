@@ -84,8 +84,11 @@ def _setup_logging(level: str) -> None:
     )
     # Library retry chatter would repeat every tick while a service is down;
     # Waitarr reports outages itself, once, through its own logger.
-    for name in ("urllib3", "requests", "qbittorrentapi"):
+    for name in ("urllib3", "requests"):
         logging.getLogger(name).setLevel(logging.ERROR)
+    # qbittorrent-api only warns once, when it falls back from https to
+    # plain http: the operator must see it.
+    logging.getLogger("qbittorrentapi").setLevel(logging.WARNING)
 
 
 def _load(config_path: Path | None) -> AppConfig:
