@@ -229,5 +229,5 @@ again when it no longer applies, not at every hourly check.
 | Code | Meaning |
 | --- | --- |
 | `0` | Success; for `status`, healthy. |
-| `1` | A service failed, the state file cannot be trusted, or (for `run`) something could not be restored on exit. |
+| `1` | A service failed, the state file cannot be trusted, or (for `run`) something could not be restored on exit. `waitarr check` also ends here, with a `[FAIL]` line, when a service reports no version or one that cannot be read. |
 | `2` | Invalid configuration; every problem is listed. |
