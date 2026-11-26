@@ -1,6 +1,6 @@
 # 0016. Downloads in progress belong on a disk Jellyfin does not read
 
-- Status: proposed (2026-10-31)
+- Status: accepted (2026-11-26); proposed on 2026-10-31
 
 ## Context
 
@@ -11,10 +11,10 @@ are released (between two films, during a pause longer than
 completed download moved to its final folder, an import by copy, a
 recheck.
 
-A film stuttered on a real deployment where qBittorrent downloads to
-the disk Jellyfin reads from, over NFS 4.2. Read afterwards, without
-changing anything, from the qBittorrent API and log (`added_on`,
-`completion_on`) and the Jellyfin and ffmpeg logs:
+A film stuttered on a deployment where qBittorrent downloads to the
+disk Jellyfin reads from, over NFS 4.2 (measured on 2026-10-31). Read
+afterwards, without changing anything, from the qBittorrent API and log
+(`added_on`, `completion_on`) and the Jellyfin and ffmpeg logs:
 
 - The film needed about 5 Mbit/s. ffmpeg stayed under real time for
   ten minutes, down to 0.44x over 30 s windows, while qBittorrent had
@@ -25,7 +25,7 @@ changing anything, from the qBittorrent API and log (`added_on`,
   triggered by a completion.
 - Pre-allocation would not have cost anything anyway: on that share,
   `fallocate` of 2 GB takes 0.56 s and writes nothing (ADR 0015).
-- The next morning, none of the 343 peers of the seven downloads still
+- Afterwards, none of the 343 peers of the seven downloads still
   running was on the local network, so peers that escape the throttle
   through *Apply rate limit to peers on LAN* are unlikely; the evening
   itself was not recorded.
@@ -33,10 +33,10 @@ changing anything, from the qBittorrent API and log (`added_on`,
   the ten minutes, and began 36 s after the slowdown.
 
 What wrote to the disk during those ten minutes cannot be told from
-what the clients keep. Later that night, the limits released and the
-same downloads running at full speed on that disk, the file server's
-NFS writes blocked from midnight until the qBittorrent host lost its
-network; that the downloads caused it is likely, not proven.
+what the clients keep. Later, with the limits released and the same
+downloads running at full speed on that disk, the file server's NFS
+writes blocked until the qBittorrent host lost its network; that the
+downloads caused it is likely, not proven.
 
 ## Decision
 
