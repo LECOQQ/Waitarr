@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable, Sequence
+from typing import Any
 
 import requests
 
@@ -23,16 +24,15 @@ __all__ = [
 logger = logging.getLogger("waitarr")
 
 
-def _deliver(name: str, send: Callable[[], requests.Response]) -> None:
+def _post(name: str, url: str, **kwargs: Any) -> None:
     try:
-        response = send()
+        response = requests.post(url, **kwargs)
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        code = "?" if error.response is None else error.response.status_code
+        logger.warning("%s: delivery refused (HTTP %s).", name, code)
     except requests.RequestException as error:
         logger.warning("%s: delivery failed (%s).", name, type(error).__name__)
-        return
-    if response.status_code >= 400:
-        logger.warning(
-            "%s: delivery refused (HTTP %s).", name, response.status_code
-        )
 
 
 class WebhookNotifier:
@@ -43,20 +43,16 @@ class WebhookNotifier:
         self._timeout = timeout
 
     def notify(self, notification: Notification) -> None:
-        _deliver(
+        _post(
             "webhook notification",
-            # `_deliver` checks the status; a refusal only warns.
-            # nosemgrep: use-raise-for-status
-            lambda: requests.post(
-                self._url,
-                json={
-                    "source": "waitarr",
-                    "event": notification.severity.value,
-                    "title": notification.title,
-                    "message": notification.message,
-                },
-                timeout=self._timeout,
-            ),
+            self._url,
+            json={
+                "source": "waitarr",
+                "event": notification.severity.value,
+                "title": notification.title,
+                "message": notification.message,
+            },
+            timeout=self._timeout,
         )
 
 
@@ -79,16 +75,12 @@ class NtfyNotifier:
         }
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
-        _deliver(
+        _post(
             "ntfy notification",
-            # `_deliver` checks the status; a refusal only warns.
-            # nosemgrep: use-raise-for-status
-            lambda: requests.post(
-                self._url,
-                data=notification.message.encode("utf-8"),
-                headers=headers,
-                timeout=self._timeout,
-            ),
+            self._url,
+            data=notification.message.encode("utf-8"),
+            headers=headers,
+            timeout=self._timeout,
         )
 
 
@@ -149,13 +141,9 @@ class HealthchecksHeartbeat:
             self._ping("/fail", message)
 
     def _ping(self, suffix: str, message: str) -> None:
-        _deliver(
+        _post(
             "Healthchecks ping",
-            # `_deliver` checks the status; a refusal only warns.
-            # nosemgrep: use-raise-for-status
-            lambda: requests.post(
-                self._url + suffix,
-                data=message.encode("utf-8"),
-                timeout=self._timeout,
-            ),
+            self._url + suffix,
+            data=message.encode("utf-8"),
+            timeout=self._timeout,
         )

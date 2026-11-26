@@ -37,27 +37,26 @@ class Service:
         self._wake = threading.Event()
         self._http: HttpSurface | None = None
         if config.http.port is not None:
-            stale = config.poll_interval * 3
             self._http = HttpSurface(
                 host=config.http.host,
                 port=config.http.port,
-                # The rule reads the lambda body as a `return` in __init__.
-                # nosemgrep: return-in-init
-                status=lambda: status_document(
-                    engine.status(),
-                    now=utc_now(),
-                    stale_after=stale,
-                    libraries_unreadable=[
-                        s.name
-                        for s in engine.sources
-                        if isinstance(s, JellyfinSource)
-                        and s.libraries_unreadable
-                    ],
-                ),
+                status=self._status,
                 wake=self.wake,
                 webhook_enabled=config.http.webhook,
                 webhook_token=config.http.webhook_token,
             )
+
+    def _status(self) -> tuple[bool, dict[str, object]]:
+        return status_document(
+            self._engine.status(),
+            now=utc_now(),
+            stale_after=self._config.poll_interval * 3,
+            libraries_unreadable=[
+                s.name
+                for s in self._engine.sources
+                if isinstance(s, JellyfinSource) and s.libraries_unreadable
+            ],
+        )
 
     def wake(self) -> None:
         self._wake.set()
