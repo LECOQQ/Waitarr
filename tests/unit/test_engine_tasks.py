@@ -565,12 +565,12 @@ def test_observation_mode_never_writes_a_task_and_never_persists():
     assert w.host.state(KEY) is TaskState.RUNNING
 
 
-def test_observation_mode_beats_with_the_names_of_the_active_mode():
+def test_observation_mode_beats_with_the_observation_phase_names():
     w = World(simulate=True)
     w.host.run(KEY)
     w.play()
     assert w.heartbeat.beats[-1][1] == (
-        "observe mode, 1 session(s), main=engaged, 1 task(s) held"
+        "observe mode, 1 session(s), main=would-engage, 1 task(s) would be held"
     )
 
 
