@@ -285,6 +285,18 @@ def test_observation_mode_never_writes_and_never_persists():
     assert w.store.saves == 0
 
 
+def test_a_confirmed_release_leaves_no_pending_origin_in_the_file():
+    w = World()
+    w.source.sessions = [playback()]
+    w.tick()
+    w.source.sessions = []
+    w.tick(200)
+    assert w.target.state == UNTHROTTLED
+    persisted = w.store.document["targets"]["main"]  # type: ignore[index]
+    assert persisted["pending"] is None
+    assert persisted["pending_from"] is None
+
+
 def test_an_idle_tick_writes_no_state_file_and_a_transition_does():
     w = World()
     w.tick()  # the first tick records the idle target, once
