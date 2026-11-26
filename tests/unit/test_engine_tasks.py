@@ -565,6 +565,15 @@ def test_observation_mode_never_writes_a_task_and_never_persists():
     assert w.host.state(KEY) is TaskState.RUNNING
 
 
+def test_observation_mode_beats_with_the_names_of_the_active_mode():
+    w = World(simulate=True)
+    w.host.run(KEY)
+    w.play()
+    assert w.heartbeat.beats[-1][1] == (
+        "observe mode, 1 session(s), main=engaged, 1 task(s) held"
+    )
+
+
 def test_observation_mode_marks_every_line_about_a_task_it_forgets(caplog):
     caplog.set_level("INFO", logger="waitarr")
     w = World(simulate=True, keys=(KEY, "Other"))

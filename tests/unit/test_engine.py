@@ -297,6 +297,28 @@ def test_a_confirmed_release_leaves_no_pending_origin_in_the_file():
     assert persisted["pending_from"] is None
 
 
+def test_a_release_that_did_not_land_is_shown_as_idle_but_still_owned():
+    w = World()
+    w.source.sessions = [playback()]
+    w.tick()
+    w.target.fail_writes = True
+    w.source.sessions = []
+    w.tick(200)
+    assert w.engine.status().targets["main"].ownership is Ownership.IDLE
+    assert w.heartbeat.beats[-1][1].count("main=idle") == 1
+    with pytest.raises(StateDocumentError, match="still owns main"):
+        Engine(
+            sources=[w.source],
+            targets=[TargetBinding(FakeTarget("other"), THROTTLE)],
+            policy=GlobalHysteresisPolicy(release_after=timedelta(minutes=3)),
+            store=w.store,
+            notifier=w.notifier,
+            heartbeat=w.heartbeat,
+            simulate=False,
+            clock=w.clock,
+        ).load()
+
+
 def test_an_idle_tick_writes_no_state_file_and_a_transition_does():
     w = World()
     w.tick()  # the first tick records the idle target, once
