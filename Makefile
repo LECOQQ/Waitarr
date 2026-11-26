@@ -105,7 +105,7 @@ check-ai: ## qa: Enforce commit provenance, no generated artefacts, house style
 
 # Prefer a local gitleaks; fall back to the official image. Neither is an
 # error, never a skip: a scanner that does nothing reports "clean".
-GITLEAKS_IMAGE := zricethezav/gitleaks:v8.24.3
+GITLEAKS_IMAGE := zricethezav/gitleaks:v8.24.3@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055
 GITLEAKS_SCOPE ?= dir
 GITLEAKS_SOURCE_FLAGS = $(if $(filter dir,$(GITLEAKS_SCOPE)),--no-git,)
 
