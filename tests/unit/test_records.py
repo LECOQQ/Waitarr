@@ -1,9 +1,12 @@
+from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime
+from itertools import product
 
 import pytest
 
 from waitarr.core.model import Limits, TargetState
-from waitarr.core.reconcile import Ownership, TargetRecord
+from waitarr.core.reconcile import Ownership, TargetRecord, reconcile, restore
 from waitarr.core.records import (
     SCHEMA_VERSION,
     StateDocument,
@@ -40,6 +43,113 @@ def test_a_yielded_record_with_a_pending_write_round_trips():
     )
     decoded = decode_state(encode_state(StateDocument({"main": record})))
     assert decoded.records["main"] == record
+
+
+SLOW = Limits(1024, 2048)
+_OBSERVED = (
+    OFF,
+    HELD,
+    TargetState(True, SLOW),
+    TargetState(True, Limits(7, 7)),
+    TargetState(False, SLOW),
+)
+
+
+def _shape(record: TargetRecord) -> tuple[str, ...]:
+    fields = ("before", "applied", "pending", "pending_from")
+    return (
+        record.ownership.value,
+        *(f if getattr(record, f) is not None else "-" for f in fields),
+    )
+
+
+def _reached(
+    *, simulate: bool, confirm: Callable[[TargetRecord], TargetRecord]
+) -> set[tuple[str, ...]]:
+    """Every record shape `reconcile` leads to from a blank record, over
+    every observed state and demand; `confirm` is what the engine does to
+    the record once a write landed."""
+    seen = {TargetRecord()}
+    todo = [TargetRecord()]
+    while todo:
+        record = todo.pop()
+        for observed, throttle, limits in product(
+            _OBSERVED, (True, False), (None, SLOW)
+        ):
+            steps = [
+                reconcile(
+                    record,
+                    observed,
+                    throttle=throttle,
+                    throttle_limits=limits,
+                    simulate=simulate,
+                )
+            ]
+            if not simulate:
+                steps.append(restore(record, observed))
+            for step in steps:
+                nexts = [step.record]
+                if step.write is not None and not simulate:
+                    nexts.append(confirm(step.record))
+                for following in nexts:
+                    if following not in seen:
+                        seen.add(following)
+                        todo.append(following)
+    return {_shape(record) for record in seen}
+
+
+def _confirm_v010(record: TargetRecord) -> TargetRecord:
+    """What every published version wrote once a write was confirmed:
+    `pending` cleared, `pending_from` left behind."""
+    return replace(record, pending=None)
+
+
+def test_the_shapes_the_machine_writes_are_the_ten_of_the_published_versions():
+    assert _reached(simulate=False, confirm=_confirm_v010) == {
+        ("engaged", "before", "applied", "-", "-"),
+        ("engaged", "before", "applied", "-", "pending_from"),
+        ("engaged", "before", "applied", "pending", "pending_from"),
+        ("idle", "-", "-", "-", "-"),
+        ("idle", "-", "-", "-", "pending_from"),
+        ("idle", "-", "-", "pending", "pending_from"),
+        ("idle", "before", "applied", "-", "pending_from"),
+        ("idle", "before", "applied", "pending", "pending_from"),
+        ("yielded", "-", "-", "-", "-"),
+        ("yielded", "before", "applied", "-", "-"),
+    }
+
+
+def test_observation_mode_reaches_five_shapes():
+    assert _reached(simulate=True, confirm=_confirm_v010) == {
+        ("engaged", "before", "applied", "-", "-"),
+        ("idle", "-", "-", "-", "-"),
+        ("idle", "before", "applied", "-", "-"),
+        ("yielded", "-", "-", "-", "-"),
+        ("yielded", "before", "applied", "-", "-"),
+    }
+
+
+def test_every_record_a_published_version_wrote_round_trips():
+    records = [TargetRecord()]
+    for record in records:
+        for observed, throttle in product(_OBSERVED, (True, False)):
+            for step in (
+                reconcile(
+                    record,
+                    observed,
+                    throttle=throttle,
+                    throttle_limits=SLOW,
+                    simulate=False,
+                ),
+                restore(record, observed),
+            ):
+                for following in (step.record, _confirm_v010(step.record)):
+                    if following not in records:
+                        records.append(following)
+    assert len(records) >= 10
+    for record in records:
+        document = StateDocument({"main": record})
+        assert decode_state(encode_state(document)) == document
 
 
 def test_memory_without_a_record_is_kept():
