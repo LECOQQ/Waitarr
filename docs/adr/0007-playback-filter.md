@@ -22,7 +22,7 @@ Priorities or per-user weights were left out: no v1 need, and the
 filter is one field of the policy, so a richer one replaces it without
 touching the engine.
 
-Libraries were added later. The Jellyfin source reads every library's
+Libraries count too. The Jellyfin source reads every library's
 folders from `/Library/VirtualFolders` (cached, refreshed every 10
 minutes) and matches the playing file's path against them, so an item
 gets every library holding it. `/Items/{id}/Ancestors` was rejected:
