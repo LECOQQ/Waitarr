@@ -27,6 +27,7 @@ src/waitarr/
 ├── adapters/        # jellyfin, qbittorrent (via qbit_core), state_file, notify, http
 ├── config.py        # TOML + environment -> AppConfig
 ├── compatibility.py # the version matrix, checked at startup
+├── banner.py        # the startup block: settings and versions, no secret
 ├── bootstrap.py     # the only module that knows the core and every adapter
 ├── service.py       # the loop, signals, health endpoint, restore on exit
 └── cli.py           # run, check, status, restore
