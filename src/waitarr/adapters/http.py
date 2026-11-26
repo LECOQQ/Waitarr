@@ -97,8 +97,9 @@ def status_document(
     stale_after: timedelta,
 ) -> tuple[bool, dict[str, object]]:
     """Return (healthy, document). Healthy means a recent tick reached
-    every service. `libraries_unreadable` names the sources whose library
-    folders could not be read: it marks the document, not the health."""
+    every service. The `libraries_unreadable` field of the status names
+    the sources whose library folders could not be read: it marks the
+    document, not the health."""
     fresh = (
         status.last_tick_at is not None
         and now - status.last_tick_at <= stale_after
