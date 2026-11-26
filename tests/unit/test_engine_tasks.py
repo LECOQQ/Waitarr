@@ -599,6 +599,15 @@ def _crashed_stop(when):
     return w
 
 
+def test_a_stop_interrupted_by_a_crash_is_retried_and_said_once(caplog):
+    w = _crashed_stop("before")
+    caplog.set_level("INFO", logger="waitarr")
+    again = World(store=w.store, host=w.host, clock=w.clock)
+    again.play()
+    assert len(_lines(caplog, "a previous stop of task")) == 1
+    assert w.host.writes == [("stop", KEY), ("stop", KEY)]
+
+
 @pytest.mark.parametrize(
     ("scenario", "marker"),
     [
