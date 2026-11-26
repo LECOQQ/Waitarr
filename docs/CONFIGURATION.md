@@ -101,12 +101,12 @@ service's reachability and version, each target's ownership and state, the
 tasks Waitarr owns (`tasks`) and the sources whose tasks cannot be read
 (`task_errors`).
 
-Who watches what (user, title, device, client) is part of the body only
-for a request that carries `WAITARR_WEBHOOK_TOKEN`, as the
-`X-Waitarr-Token` header; `waitarr status` sends it when that variable is
-set. Any other caller gets each session's source and paused flag, and the
-error messages without the URLs of the services. With no token set, the
-detail is never served.
+Who watches what (user, title, device, client) and the versions of Waitarr
+and of the services are part of the body only for a request that carries
+`WAITARR_WEBHOOK_TOKEN`, as the `X-Waitarr-Token` header; `waitarr status`
+sends it when that variable is set. Any other caller gets each session's
+source and paused flag, no version, and the error messages without the URLs
+of the services. With no token set, the detail is never served.
 
 For the webhook, install Jellyfin's *Webhook* plugin and add a *Generic*
 destination to `http://<waitarr>:8778/hooks/jellyfin`, on *Playback

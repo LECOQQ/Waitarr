@@ -147,6 +147,20 @@ def test_health_keeps_the_internal_url_of_a_service_from_a_caller(make_rig):
     assert "media-host" in rig.health(token="hook-token").text
 
 
+def test_health_keeps_the_versions_from_a_caller_without_the_token(make_rig):
+    from waitarr import __version__
+
+    rig = make_rig(token="hook-token")
+    rig.engine.check_versions()
+    rig.tick()
+    known = rig.health(token="hook-token").json()
+    assert known["version"] == __version__
+    assert known["services"]["jellyfin"]["version"] is not None
+    body = rig.health().json()
+    assert "version" not in body
+    assert all("version" not in s for s in body["services"].values())
+
+
 def test_the_server_header_names_no_version(make_rig):
     from waitarr import __version__
 

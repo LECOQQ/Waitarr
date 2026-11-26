@@ -60,13 +60,13 @@ def public_view(document: dict[str, object]) -> dict[str, object]:
     task_errors = cast("dict[str, str]", document["task_errors"])
     sessions = cast("list[dict[str, object]]", document["sessions"])
     return {
-        **document,
+        **{k: v for k, v in document.items() if k != "version"},
         "sessions": [
             {key: s[key] for key in ("source", "paused")} for s in sessions
         ],
         "services": {
             name: {
-                **service,
+                **{k: v for k, v in service.items() if k != "version"},
                 "error": (
                     _without_urls(str(service["error"]))
                     if service["error"]
