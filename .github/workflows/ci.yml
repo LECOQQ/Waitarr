@@ -69,6 +69,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up the toolchain
         uses: ./.github/actions/setup
@@ -95,6 +96,96 @@ jobs:
           sys.exit(1 if bad else 0)
           PY
 
+  # Secret scan of the commits of the pull request. The release archive is pinned
+  # by the sha256 its release publishes (`gitleaks_<version>_checksums.txt`) and
+  # checked before it is unpacked: no container, no third-party action. gitleaks
+  # reads the `.gitleaks.toml` at the root of the project when there is one, the
+  # default rules otherwise.
+  gitleaks:
+    name: Secret scan
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install gitleaks
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "${RUNNER_TEMP}/${archive}" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          actual="$(sha256sum "${RUNNER_TEMP}/${archive}" | cut -d' ' -f1)"
+          if [ "${actual}" != "${GITLEAKS_SHA256}" ]; then
+            echo "::error::gitleaks ${GITLEAKS_VERSION}: sha256 ${actual} is not the pinned one"
+            exit 1
+          fi
+          mkdir "${RUNNER_TEMP}/gitleaks"
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/gitleaks" gitleaks
+
+      - name: Scan the commits of the pull request
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # gitleaks exits 0 with "0 commits scanned" when the range cannot be read.
+          git rev-parse --verify --quiet "origin/${BASE_REF}^{commit}" >/dev/null || { echo "::error::origin/${BASE_REF} is not readable: nothing to scan"; exit 1; }
+          "${RUNNER_TEMP}/gitleaks/gitleaks" git --no-banner --redact --log-opts "origin/${BASE_REF}..HEAD" .
+
+  # Lint of the workflows of the project (`.github/workflows`):
+  # actionlint for the syntax, zizmor for the security. Each release archive is pinned
+  # by the sha256 its release publishes and checked before it is unpacked: no
+  # container, no third-party action. zizmor runs offline (no token on the runner).
+  workflows:
+    name: Lint the workflows
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ACTIONLINT_VERSION: "1.7.12"
+      ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+      ZIZMOR_VERSION: "1.33.1"
+      ZIZMOR_SHA256: "3e6a301c7a820a2501915f5a9de8c0486da82bdec7965f068477538a98743d43"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Install actionlint and zizmor
+        run: |
+          fetch() {
+            curl -sSfL -o "${RUNNER_TEMP}/$1" "$2"
+            actual="$(sha256sum "${RUNNER_TEMP}/$1" | cut -d' ' -f1)"
+            if [ "${actual}" != "$3" ]; then
+              echo "::error::$1: sha256 ${actual} is not the pinned one"
+              exit 1
+            fi
+          }
+          mkdir "${RUNNER_TEMP}/lint"
+          actionlint="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          fetch "${actionlint}" "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${actionlint}" "${ACTIONLINT_SHA256}"
+          tar -xzf "${RUNNER_TEMP}/${actionlint}" -C "${RUNNER_TEMP}/lint" actionlint
+          zizmor="zizmor-x86_64-unknown-linux-gnu.tar.gz"
+          fetch "${zizmor}" "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/${zizmor}" "${ZIZMOR_SHA256}"
+          tar -xzf "${RUNNER_TEMP}/${zizmor}" -C "${RUNNER_TEMP}/lint" zizmor
+
+      - name: Lint the workflows
+        run: |
+          mapfile -t files < <(find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::notice::No workflow to lint."
+            exit 0
+          fi
+          status=0
+          "${RUNNER_TEMP}/lint/actionlint" "${files[@]}" || status=1
+          "${RUNNER_TEMP}/lint/zizmor" --offline --no-progress "${files[@]}" || status=1
+          exit "${status}"
+
   full:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -104,6 +195,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up the toolchain
         uses: ./.github/actions/setup
@@ -129,14 +221,15 @@ jobs:
       GIT_COMMITTER_NAME: CI
       GIT_COMMITTER_EMAIL: ci@example.invalid
     steps:
-      - name: Checkout repository
+      # The credentials stay: this job pushes the registry.
+      - name: Checkout repository # zizmor: ignore[artipacked]
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Record and push the verification
         env:
           RUN_ID: ${{ github.run_id }}
         run: |
-          tree="$(git rev-parse HEAD^{tree})"
+          tree="$(git rev-parse "HEAD^{tree}")"
           commit="$(git rev-parse HEAD)"
           at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git fetch --quiet origin +refs/notes/verified:refs/notes/verified || echo "No registry on the forge yet."
