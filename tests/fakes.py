@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import socket
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
+from waitarr.core.engine import Engine, TargetBinding
 from waitarr.core.model import (
     Diagnostic,
     Limits,
@@ -15,7 +18,15 @@ from waitarr.core.model import (
     TaskRun,
     TaskState,
 )
-from waitarr.core.ports import Notification, ServiceUnavailable
+from waitarr.core.policy import GlobalHysteresisPolicy, ThrottlePolicy
+from waitarr.core.ports import (
+    ActivitySource,
+    Heartbeat,
+    Notification,
+    Notifier,
+    ServiceUnavailable,
+    StateStore,
+)
 
 UNTHROTTLED = TargetState(False, Limits(0, 0))
 THROTTLE = Limits(1024, 1024)
@@ -55,6 +66,47 @@ class FakeClock:
 
     def advance(self, seconds: float) -> None:
         self.now += timedelta(seconds=seconds)
+
+
+class MonotonicClock:
+    """A `time.monotonic` stand-in the test moves by setting `now`."""
+
+    def __init__(self, start: float = 0.0) -> None:
+        self.now = start
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def make_engine(
+    *,
+    sources: Sequence[ActivitySource],
+    targets: Sequence[TargetBinding],
+    policy: ThrottlePolicy | None = None,
+    store: StateStore | None = None,
+    notifier: Notifier | None = None,
+    heartbeat: Heartbeat | None = None,
+    simulate: bool = False,
+    **kwargs: Any,
+) -> Engine:
+    """An engine over doubles; each part left out is the usual one."""
+    return Engine(
+        sources=sources,
+        targets=targets,
+        policy=policy
+        or GlobalHysteresisPolicy(release_after=timedelta(minutes=3)),
+        store=MemoryStore() if store is None else store,
+        notifier=notifier or RecordingNotifier(),
+        heartbeat=heartbeat or RecordingHeartbeat(),
+        simulate=simulate,
+        **kwargs,
+    )
 
 
 class FakeSource:

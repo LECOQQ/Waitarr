@@ -1,5 +1,4 @@
 import logging
-from datetime import timedelta
 
 from tests.unit.test_config import MINIMAL, load
 from waitarr.bootstrap import build_surface
@@ -35,27 +34,14 @@ def test_healthz_marks_the_jellyfin_source_whose_libraries_are_unreadable(
 ):
     import requests
 
-    from tests.fakes import (
-        THROTTLE,
-        FakeTarget,
-        MemoryStore,
-        RecordingHeartbeat,
-        RecordingNotifier,
-    )
+    from tests.fakes import THROTTLE, FakeTarget, make_engine
     from waitarr.adapters.jellyfin import JellyfinSource
-    from waitarr.core.engine import Engine, TargetBinding
-    from waitarr.core.policy import GlobalHysteresisPolicy
+    from waitarr.core.engine import TargetBinding
 
     reader = JellyfinSource("jellyfin", "http://127.0.0.1:1", "key")
-    engine = Engine(
+    engine = make_engine(
         sources=[reader],
         targets=[TargetBinding(FakeTarget("main"), THROTTLE)],
-        task_hosts=[],
-        policy=GlobalHysteresisPolicy(release_after=timedelta(minutes=3)),
-        store=MemoryStore(),
-        notifier=RecordingNotifier(),
-        heartbeat=RecordingHeartbeat(),
-        simulate=False,
     )
     config = load(tmp_path, MINIMAL + '\n[http]\nlisten = "127.0.0.1:0"\n')
     service = Service(config, engine, build_surface(config, engine))
