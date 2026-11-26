@@ -18,8 +18,8 @@ allowlist. That is how a genuine use survives -- the TUI renders an em
 dash as the glyph for an inactive rate cell, and no style rule should
 change user-visible output.
 
-New rules go through the governance AGENTS.md describes, never
-opportunistically.
+A new rule is added deliberately, with its reason, its remedy and its
+scope, never opportunistically.
 """
 
 from __future__ import annotations
@@ -30,6 +30,8 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+from check_commit_provenance import AGENT_NAMES_PATTERN
 
 
 @dataclass(frozen=True)
@@ -67,7 +69,7 @@ RULES: tuple[Rule, ...] = (
         remedy="Remove the trailer from the commit message.",
         # Only agent names are refused: a human co-author stays legitimate.
         pattern=re.compile(
-            r"^\s*Co-Authored-By:.*\b(claude|anthropic|gpt|copilot|cursor)\b",
+            rf"^\s*Co-Authored-By:.*\b({AGENT_NAMES_PATTERN})\b",
             re.IGNORECASE,
         ),
         suffixes=TEXT_SUFFIXES,
@@ -83,8 +85,8 @@ RULES: tuple[Rule, ...] = (
         ),
         remedy="Delete the notice.",
         pattern=re.compile(
-            r"\b(generated (with|by) (claude|ai|an? llm|copilot)"
-            r"|written by (claude|an? ai)"
+            rf"\b(generated (with|by) ({AGENT_NAMES_PATTERN}|ai|an? llm)"
+            rf"|written by ({AGENT_NAMES_PATTERN}|an? ai)"
             r"|🤖 generated)",
             re.IGNORECASE,
         ),
@@ -124,8 +126,7 @@ RULES: tuple[Rule, ...] = (
         identifier="french-in-src",
         category="style",
         reason=(
-            "AGENTS.md, § Langue requires English for src/ comments "
-            "and docstrings: conversation is French, code is not. A "
+            "Comments and docstrings in src/ are written in English. A "
             "reader of the product's source should never need French to "
             "follow a comment."
         ),

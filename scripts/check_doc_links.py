@@ -49,7 +49,7 @@ SKIPPED_DIRS = frozenset(
         "build",
         "htmlcov",
         # Agent working memory: gitignored, never published, absent from
-        # CI. It quotes paths of earlier layouts (the brief) on purpose.
+        # CI. It quotes paths of earlier layouts on purpose.
         ".agents",
         # Scratch. `tmp/` is gitignored and exists so an agent can put
         # a variant, a measurement table or a draft somewhere it will
