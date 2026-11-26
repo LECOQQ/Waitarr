@@ -106,14 +106,14 @@ the sources whose tasks cannot be read
 (`libraries_unreadable`, a list of names: it marks the body and leaves the
 status code alone).
 
-`phase` names where Waitarr stands on a target or a task: `idle` (nothing
-owned), `yielded` (a human's decision, left alone), and the others for a
-write that may not have landed (`engaging`, `releasing`, `resuming`,
-`stopping`, `starting`) or one held (`engaged`, `held`). In observation
-mode, `would-engage` and `would-hold` stand for what the write would have
-done. A target also shows `yielded-blank` and `yielded-holding`, a human's
-throttle with nothing, or Waitarr's limits, left to give back. The
-cases are in [ADR 0003](adr/0003-ownership-state-machine.md) for targets
+`phase` names where Waitarr stands on a target or a task, and both show
+`idle` (nothing owned). A target shows `engaging`, `releasing` or `resuming`
+(a write that may not have landed), `engaged` (held), and `yielded-blank` or
+`yielded-holding` (a human's throttle, with nothing, or Waitarr's limits,
+left to give back). A task shows `stopping` or `starting` (a write that may
+not have landed), `held`, and `yielded` (a human's decision, left alone). In
+observation mode, `would-engage` (target) and `would-hold` (task) stand for
+what the write would have done. The cases are in [ADR 0003](adr/0003-ownership-state-machine.md) for targets
 and [ADR 0013](adr/0013-suspend-jellyfin-tasks.md) for tasks.
 
 Who watches what (user, title, device, client) and the versions of Waitarr
