@@ -206,7 +206,7 @@ def test_library_folders_are_not_read_while_nothing_plays(jellyfin):
     assert folder_reads(jellyfin) == []
 
 
-def test_a_failed_folder_read_keeps_the_playback_and_retries(jellyfin):
+def test_a_failed_folder_read_keeps_the_playback_and_retries(jellyfin, caplog):
     jellyfin.libraries = LIBRARIES
     jellyfin.sessions = [session(path="/media/library-3/a.flac")]
     reader = source(jellyfin)
@@ -218,11 +218,19 @@ def test_a_failed_folder_read_keeps_the_playback_and_retries(jellyfin):
         return original(path)
 
     reader._get = flaky
-    (playback,) = reader.playbacks()
-    assert playback.libraries == ()
+    with caplog.at_level("WARNING", logger="waitarr"):
+        (playback,) = reader.playbacks()
+        assert playback.libraries == ()
+        assert reader.libraries_unreadable is True
+        for _ in range(3):
+            reader.playbacks()
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "library" in warnings[0].getMessage()
     reader._get = original
     (playback,) = reader.playbacks()
     assert playback.libraries == ("library-3",)
+    assert reader.libraries_unreadable is False
 
 
 def tasks_host(fake, key=KEY, *, read_only=False):
