@@ -36,7 +36,8 @@ def _post(name: str, url: str, **kwargs: Any) -> None:
 
 
 class WebhookNotifier:
-    """POSTs `{"event", "title", "message"}` as JSON to any URL."""
+    """POSTs `{"source", "event", "title", "message"}` as JSON to any URL
+    (`source` is always `"waitarr"`; see docs/CONFIGURATION.md)."""
 
     def __init__(self, url: str, *, timeout: float = 10.0) -> None:
         self._url = url
