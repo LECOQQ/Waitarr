@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -16,9 +17,36 @@ FIXTURE = ROOT / "tests" / "unit" / "fixtures" / "sast"
 OPENGREP = os.environ.get("OPENGREP_BIN") or shutil.which("opengrep")
 SEMGREP = os.environ.get("SEMGREP_BIN") or shutil.which("semgrep")
 
+
 pytestmark = pytest.mark.skipif(
     not (OPENGREP and SEMGREP),
     reason="needs opengrep and semgrep (OPENGREP_BIN / SEMGREP_BIN or PATH)",
+)
+
+
+def _pinned(name: str) -> str:
+    match = re.search(rf'^{name}="v?([^"]+)"', SCRIPT.read_text(), re.M)
+    assert match, f"{name} is not pinned in {SCRIPT.name}"
+    return match.group(1)
+
+
+def _version(binary: str | None) -> str | None:
+    if not binary:
+        return None
+    completed = subprocess.run(
+        [binary, "--version"], capture_output=True, text=True, check=False
+    )
+    lines = completed.stdout.strip().splitlines()
+    return lines[-1] if lines else None
+
+
+# CI installs the pinned versions and plays the comparison; a host with
+# others would fail the script's own version check, not a finding.
+pinned_engines = pytest.mark.skipif(
+    _version(OPENGREP) != _pinned("OPENGREP_VERSION")
+    or _version(SEMGREP) != _pinned("SEMGREP_VERSION"),
+    reason="the host's opengrep or semgrep is not the version pinned in "
+    "scripts/sast.sh",
 )
 
 
@@ -58,6 +86,7 @@ def _findings(
     }
 
 
+@pinned_engines
 def test_both_engines_report_the_same_findings_on_the_same_rules(
     tmp_path: Path,
 ) -> None:
