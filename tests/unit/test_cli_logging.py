@@ -29,6 +29,14 @@ def test_library_loggers_only_report_errors(name):
     assert logger.isEnabledFor(logging.ERROR)
 
 
+def test_the_https_to_http_fallback_warning_is_not_silenced():
+    # qbittorrent-api warns on this logger when it talks plain http to a
+    # host configured as https: the warning that the connection left https.
+    _setup_logging("INFO")
+    logger = logging.getLogger("qbittorrentapi.request")
+    assert logger.isEnabledFor(logging.WARNING)
+
+
 def test_waitarr_messages_still_pass():
     _setup_logging("INFO")
     assert logging.getLogger("waitarr").isEnabledFor(logging.INFO)
