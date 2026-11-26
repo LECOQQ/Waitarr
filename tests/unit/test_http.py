@@ -85,6 +85,20 @@ def test_health_is_503_and_starting_before_the_first_tick(make_rig):
     assert response.json()["status"] == "starting"
 
 
+def test_health_is_still_starting_just_inside_the_staleness_window(make_rig):
+    rig = make_rig()
+    rig.clock.advance(STALE_AFTER.total_seconds() - 1)
+    assert rig.health().json()["status"] == "starting"
+
+
+def test_health_is_degraded_when_no_tick_came_within_the_window(make_rig):
+    rig = make_rig()
+    rig.clock.advance(STALE_AFTER.total_seconds() + 1)
+    response = rig.health()
+    assert response.status_code == 503
+    assert response.json()["status"] == "degraded"
+
+
 def test_health_is_200_when_a_recent_tick_reached_every_service(make_rig):
     rig = make_rig()
     rig.tick()
