@@ -101,7 +101,11 @@ def status_document(
     )
     healthy = fresh and status.healthy
     if status.last_tick_at is None:
-        state = "starting"
+        # "Starting" lasts one staleness window; a first tick that never
+        # comes after that is a fault, not a slow start.
+        state = (
+            "starting" if now - status.started_at <= stale_after else "degraded"
+        )
     else:
         state = "ok" if healthy else "degraded"
     document: dict[str, object] = {
