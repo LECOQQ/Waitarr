@@ -4,20 +4,6 @@ import pytest
 
 from waitarr.cli import _setup_logging
 
-
-@pytest.fixture(autouse=True)
-def _restore_logging():
-    names = ("urllib3", "requests", "qbittorrentapi")
-    saved = {n: logging.getLogger(n).level for n in names}
-    root = logging.getLogger()
-    root_level, root_handlers = root.level, root.handlers[:]
-    yield
-    for n, level in saved.items():
-        logging.getLogger(n).setLevel(level)
-    root.handlers[:] = root_handlers
-    root.setLevel(root_level)
-
-
 LIBRARIES = ["urllib3", "urllib3.connectionpool", "requests"]
 
 
