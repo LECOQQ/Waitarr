@@ -107,6 +107,18 @@ def test_a_bad_timestamp_is_refused():
         decode_state(raw)
 
 
+@pytest.mark.parametrize(
+    "stamp", ["2026-10-27T20:00:00", 1761595200, True, ["2026-10-27"]]
+)
+def test_a_timestamp_without_an_offset_or_not_text_is_refused(stamp):
+    for raw in (
+        {"targets": {"main": {"last_activity_at": stamp}}},
+        {"tasks": {"jellyfin": {"last_activity_at": stamp}}},
+    ):
+        with pytest.raises(StateDocumentError, match="last_activity_at"):
+            decode_state({"schema_version": SCHEMA_VERSION, **raw})
+
+
 STOPPED = TaskRecord(
     TaskOwnership.STOPPED,
     cancelled_start="2026-10-30T21:25:06.0000000Z",
