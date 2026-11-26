@@ -3,6 +3,7 @@ host of scheduled tasks (`/ScheduledTasks`)."""
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
@@ -21,6 +22,8 @@ from waitarr.core.model import (
 from waitarr.core.ports import ServiceUnavailable, WriteRefused
 
 __all__ = ["JellyfinSource", "JellyfinTasks"]
+
+logger = logging.getLogger("waitarr")
 
 # How long the library folders (`/Library/VirtualFolders`) are trusted
 # before they are read again: libraries change rarely, a tick is 15 s.
@@ -142,6 +145,12 @@ class JellyfinSource(_JellyfinClient):
         self._monotonic = monotonic
         self._folders: tuple[tuple[str, tuple[str, ...]], ...] = ()
         self._folders_read_at: float | None = None
+        self._libraries_unreadable = False
+
+    @property
+    def libraries_unreadable(self) -> bool:
+        """The last read of the library folders failed."""
+        return self._libraries_unreadable
 
     def version(self) -> ServiceVersion:
         info = self._get("/System/Info/Public")
@@ -195,6 +204,8 @@ class JellyfinSource(_JellyfinClient):
 
         A failed read keeps the folders known so far and is tried again
         next tick: playbacks still count meanwhile, with what is known.
+        The first failure is warned about once, and shows in
+        `libraries_unreadable` until a read succeeds.
         """
         now = self._monotonic()
         if (
@@ -204,10 +215,26 @@ class JellyfinSource(_JellyfinClient):
             return
         try:
             raw = self._get("/Library/VirtualFolders")
-        except ServiceUnavailable:
+            if not isinstance(raw, list):
+                raise ServiceUnavailable(
+                    f"{self._base}/Library/VirtualFolders did not return a list"
+                )
+        except ServiceUnavailable as error:
+            if not self._libraries_unreadable:
+                logger.warning(
+                    "%s: cannot read the library folders (%s); the "
+                    "library filter cannot tell which library plays until "
+                    "it can.",
+                    self._name,
+                    error,
+                )
+            self._libraries_unreadable = True
             return
-        if not isinstance(raw, list):
-            return
+        if self._libraries_unreadable:
+            logger.info(
+                "%s: the library folders are readable again.", self._name
+            )
+        self._libraries_unreadable = False
         folders = []
         for library in raw:
             if not isinstance(library, Mapping):
