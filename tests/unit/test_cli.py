@@ -146,3 +146,17 @@ def test_restore_starts_again_the_tasks_a_previous_run_stopped(wiring):
     result = wiring.run("restore", "--yes")
     assert result.exit_code == 0
     assert wiring.host.writes[-1] == ("start", "RefreshLibrary")
+
+
+@pytest.mark.parametrize(
+    "url", ["file:///etc/passwd", "ftp://127.0.0.1/", "127.0.0.1:8080", ""]
+)
+def test_status_refuses_a_url_that_is_not_http_or_https(monkeypatch, url):
+    def never_opened(*args, **kwargs):
+        raise AssertionError("the URL must be refused before any request")
+
+    monkeypatch.setattr(cli.urllib.request, "urlopen", never_opened)
+    result = CliRunner().invoke(cli.app, ["status", "--url", url])
+    assert result.exit_code == 2
+    assert "http" in result.output
+    assert "https" in result.output

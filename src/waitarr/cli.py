@@ -6,6 +6,7 @@ import json
 import logging
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Annotated
@@ -221,12 +222,16 @@ def status(
     ] = False,
 ) -> None:
     """Query a running Waitarr's /healthz (exit 0 when healthy)."""
+    if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
+        raise typer.BadParameter(
+            "must start with http:// or https://.", param_hint="--url"
+        )
     request = urllib.request.Request(  # noqa: S310 -- the operator's own --url
         f"{url.rstrip('/')}/healthz",
         headers={"X-Waitarr-Token": token} if token else {},
     )
     try:
-        # `url` is the operator's own --url, a local health probe.
+        # The scheme was checked above: only http and https reach urlopen.
         # nosemgrep: dynamic-urllib-use-detected
         with urllib.request.urlopen(request, timeout=5) as r:
             code, body = r.status, r.read()
