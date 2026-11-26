@@ -137,6 +137,20 @@ for entry in "${SOURCES[@]}"; do
 done
 [ -n "${SAST_SARIF:-}" ] && args+=(--sarif-output="${SAST_SARIF}")
 [ "${SAST_STRICT:-0}" = "1" ] && args+=(--error)
-# exec skips the EXIT trap.
 rm -rf "${TMP_ROOT}"
-exec "${ENGINE_BIN}" "${args[@]}" "$@" .
+status=0
+"${ENGINE_BIN}" "${args[@]}" "$@" . || status=$?
+
+# Both engines keep a `# nosemgrep: <rule id>` finding in the SARIF, flagged
+# as suppressed, and code scanning still opens an alert for it. Drop those
+# results. The engine matches the id on its last segment, so the short id in
+# the comment survives a rule update; a wrong id suppresses nothing.
+if [ -n "${SAST_SARIF:-}" ] && [ -f "${SAST_SARIF}" ]; then
+  command -v jq >/dev/null 2>&1 || die "jq is required to read ${SAST_SARIF}."
+  kept="$(mktemp "${SAST_SARIF}.XXXXXX")"
+  jq '.runs[].results |= ((. // []) | map(select((.suppressions // []) | length == 0)))' \
+    "${SAST_SARIF}" >"${kept}" \
+    || { rm -f "${kept}"; die "could not filter ${SAST_SARIF}."; }
+  mv "${kept}" "${SAST_SARIF}"
+fi
+exit "${status}"
