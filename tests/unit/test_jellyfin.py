@@ -4,6 +4,7 @@ import urllib.request
 import pytest
 
 from tests.fake_jellyfin import FakeJellyfin, session
+from tests.fakes import MonotonicClock
 from waitarr.adapters.jellyfin import (
     LIBRARY_REFRESH_SECONDS,
     JellyfinSource,
@@ -156,14 +157,6 @@ LIBRARIES = {
 }
 
 
-class Clock:
-    def __init__(self) -> None:
-        self.now = 0.0
-
-    def __call__(self) -> float:
-        return self.now
-
-
 def folder_reads(fake):
     return [p for p, _ in fake.requests if p == "/Library/VirtualFolders"]
 
@@ -189,7 +182,7 @@ def test_an_item_belongs_to_every_library_whose_folder_holds_it(jellyfin):
 def test_library_folders_are_read_once_then_refreshed_rarely(jellyfin):
     jellyfin.libraries = LIBRARIES
     jellyfin.sessions = [session(path="/media/library-3/a.flac")]
-    clock = Clock()
+    clock = MonotonicClock()
     reader = source(jellyfin, monotonic=clock)
     for _ in range(5):
         reader.playbacks()

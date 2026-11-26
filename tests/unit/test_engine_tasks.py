@@ -13,16 +13,15 @@ from tests.fakes import (
     MemoryStore,
     RecordingHeartbeat,
     RecordingNotifier,
+    make_engine,
     playback,
 )
 from waitarr.core.engine import (
     UNREACHABLE_REMINDER,
-    Engine,
     TargetBinding,
     TaskBinding,
 )
 from waitarr.core.model import TargetState, TaskState
-from waitarr.core.policy import GlobalHysteresisPolicy
 from waitarr.core.records import StateDocumentError
 from waitarr.core.tasks import TaskAction, TaskOwnership
 
@@ -50,10 +49,9 @@ class World:
         self.store = store or MemoryStore()
         self.notifier = RecordingNotifier()
         self.heartbeat = RecordingHeartbeat()
-        self.engine = Engine(
+        self.engine = make_engine(
             sources=[self.source],
             targets=[TargetBinding(self.target, THROTTLE)],
-            policy=GlobalHysteresisPolicy(release_after=timedelta(minutes=3)),
             store=self.store,
             notifier=self.notifier,
             heartbeat=self.heartbeat,

@@ -4,7 +4,6 @@ fake Jellyfin per test, and the real adapters wired to both."""
 from __future__ import annotations
 
 import os
-import socket
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import timedelta
@@ -19,12 +18,13 @@ from tests.fakes import (
     FakeClock,
     RecordingHeartbeat,
     RecordingNotifier,
+    make_engine,
 )
 from tests.integration import qbit_container
 from waitarr.adapters.jellyfin import JellyfinSource, JellyfinTasks
 from waitarr.adapters.qbittorrent import QbittorrentTarget
 from waitarr.adapters.state_file import JsonStateFile
-from waitarr.core.engine import Engine, TargetBinding, TaskBinding
+from waitarr.core.engine import TargetBinding, TaskBinding
 from waitarr.core.model import Limits
 from waitarr.core.policy import GlobalHysteresisPolicy
 
@@ -111,12 +111,6 @@ def jellyfin() -> Iterator[FakeJellyfin]:
         yield fake
 
 
-def free_port() -> int:
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
-
-
 class Rig:
     """The engine with the real adapters, driven tick by tick."""
 
@@ -154,7 +148,7 @@ class Rig:
             read_only=simulate,
             timeout=3,
         )
-        self.engine = Engine(
+        self.engine = make_engine(
             sources=[self.source],
             targets=[TargetBinding(self.target, THROTTLE)],
             task_hosts=[TaskBinding(self.tasks, TASKS)],

@@ -1,10 +1,12 @@
 import json
 import threading
+from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 import requests
 
+from tests.fakes import MonotonicClock
 from waitarr.adapters import notify as notify_module
 from waitarr.adapters.notify import (
     FanOutNotifier,
@@ -77,12 +79,7 @@ FAILURE = Notification(Severity.FAILURE, "main is down", "cannot reach it")
 RECOVERY = Notification(Severity.RECOVERY, "main is back", "reachable again")
 
 
-class Clock:
-    def __init__(self):
-        self.now = 1000.0
-
-    def __call__(self):
-        return self.now
+Clock = partial(MonotonicClock, 1000.0)
 
 
 def heartbeat(url, clock, interval=60.0):

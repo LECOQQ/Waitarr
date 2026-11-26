@@ -9,13 +9,12 @@ import pytest
 import requests
 
 from tests.fake_jellyfin import session
-from tests.fakes import FakeClock
+from tests.fakes import FakeClock, free_port
 from tests.integration.conftest import (
     BASELINE_ALT,
     RELEASE_AFTER,
     THROTTLE,
     Snapshot,
-    free_port,
 )
 from waitarr.bootstrap import build_engine
 from waitarr.config import load_config

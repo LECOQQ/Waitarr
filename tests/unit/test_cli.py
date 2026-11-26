@@ -1,5 +1,4 @@
 from dataclasses import replace
-from datetime import timedelta
 
 import pytest
 from typer.testing import CliRunner
@@ -11,13 +10,12 @@ from tests.fakes import (
     FakeTarget,
     FakeTaskHost,
     MemoryStore,
-    RecordingHeartbeat,
-    RecordingNotifier,
+    make_engine,
     playback,
 )
 from waitarr import bootstrap, cli
 from waitarr.compatibility import Assessment, Verdict
-from waitarr.core.engine import Engine, TargetBinding, TaskBinding
+from waitarr.core.engine import TargetBinding, TaskBinding
 from waitarr.core.model import ServiceVersion
 from waitarr.core.policy import GlobalHysteresisPolicy
 
@@ -49,15 +47,13 @@ class Wiring:
 
     def build(self, config, *, simulate=None):
         self.built.append(simulate)
-        return Engine(
+        return make_engine(
             sources=[FakeSource()],
             targets=[TargetBinding(FakeTarget("main"), THROTTLE)],
             policy=GlobalHysteresisPolicy(
                 release_after=config.policy.release_after
             ),
             store=self.store,
-            notifier=RecordingNotifier(),
-            heartbeat=RecordingHeartbeat(),
             simulate=bool(simulate),
             clock=FakeClock(),
             task_hosts=[TaskBinding(self.host, self.keys)],
@@ -152,14 +148,10 @@ def test_restore_without_yes_builds_nothing_and_names_both_services(wiring):
 def test_restore_starts_again_the_tasks_a_previous_run_stopped(wiring):
     clock = FakeClock()
     source = FakeSource()
-    previous = Engine(
+    previous = make_engine(
         sources=[source],
         targets=[TargetBinding(FakeTarget("main"), THROTTLE)],
-        policy=GlobalHysteresisPolicy(release_after=timedelta(minutes=3)),
         store=wiring.store,
-        notifier=RecordingNotifier(),
-        heartbeat=RecordingHeartbeat(),
-        simulate=False,
         clock=clock,
         task_hosts=[TaskBinding(wiring.host, ("RefreshLibrary",))],
     )
