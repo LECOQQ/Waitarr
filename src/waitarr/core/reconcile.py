@@ -29,7 +29,7 @@ class Ownership(StrEnum):
 
 
 class TargetPhase(StrEnum):
-    """The seven states of a target, each one shape of `TargetRecord`.
+    """The states of a target, each one shape of `TargetRecord`.
 
     `pending` is a write that may not have landed, `pending_from` the state
     it was decided from; the two come together, and a write is retried only
