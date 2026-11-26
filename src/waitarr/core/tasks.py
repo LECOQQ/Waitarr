@@ -1,27 +1,10 @@
 """Decide what to do with one scheduled task, given what Waitarr owns and
-what it observes. Pure: no I/O, no clock.
-
-The same safety model as `reconcile`: Waitarr only ever undoes its own
-change.
-
-- `IDLE`: Waitarr owns nothing on this task.
-- `STOPPED`: Waitarr stopped a running task and remembers the identity of
-  the last execution it saw (`cancelled_start`). It starts the task again
-  once the hold is over, and only if no execution has begun or ended
-  since: the identity must still be the one it noted.
-- `YIELDED`: a human started the task again while Waitarr held it. Waitarr
-  stops nothing on it until the hold is over; it then forgets.
+what it observes; pure, the same safety model as `reconcile` (ADR 0013).
 
 An execution is identified by the `StartTimeUtc` the host reports, compared
-by equality, never by Waitarr's clock. A task that never ran has the
-identity `None`, compared the same way.
-
-`pending` is a write that may not have landed, and `pending_from` the
-identity it was decided from. A stop that may not have landed is retried
-only while the task is still running that execution and the hold lasts; a
-start that may not have landed is retried only while nothing has run since.
-A task being cancelled is never written to: the step waits for the first
-idle reading, where the identity of the cancelled execution can be read.
+by equality, never by Waitarr's clock; a task that never ran has identity
+`None`. A task being cancelled is never written to: the step waits for the
+first idle reading, where the cancelled execution's identity can be read.
 """
 
 from __future__ import annotations
@@ -34,11 +17,14 @@ from waitarr.core.model import ScheduledTask, TaskState
 __all__ = [
     "TaskAction",
     "TaskOwnership",
+    "TaskPhase",
     "TaskRecord",
     "TaskStep",
     "TaskWrite",
+    "holds_task",
     "restore_task",
     "step_task",
+    "task_phase",
 ]
 
 CANCELLED = "Cancelled"
@@ -48,6 +34,20 @@ class TaskOwnership(StrEnum):
     IDLE = "idle"
     STOPPED = "stopped"
     YIELDED = "yielded"
+
+
+class TaskPhase(StrEnum):
+    """The states of a task, from its ownership and its `pending` write
+    (`pending_from` is the execution identity the write was decided from)."""
+
+    IDLE = "idle"  # nothing owned
+    STOPPING = "stopping"  # Waitarr's stop may not have landed
+    HELD = "held"  # stopped by Waitarr; it starts it again after the hold
+    WOULD_HOLD = "would-hold"  # HELD, in observation mode
+    STARTING = "starting"  # Waitarr's start may not have landed
+    YIELDED = (
+        "yielded"  # a human started it again: left alone until the hold ends
+    )
 
 
 class TaskWrite(StrEnum):
@@ -83,6 +83,23 @@ class TaskStep:
     record: TaskRecord
     action: TaskAction
     write: TaskWrite | None = None
+
+
+def task_phase(record: TaskRecord, *, simulate: bool = False) -> TaskPhase:
+    if record.ownership is TaskOwnership.IDLE:
+        return TaskPhase.IDLE
+    if record.ownership is TaskOwnership.YIELDED:
+        return TaskPhase.YIELDED
+    if record.pending is TaskWrite.STOP:
+        return TaskPhase.STOPPING
+    if record.pending is TaskWrite.START:
+        return TaskPhase.STARTING
+    return TaskPhase.WOULD_HOLD if simulate else TaskPhase.HELD
+
+
+def holds_task(record: TaskRecord) -> bool:
+    """Whether the task is Waitarr's to see out: any phase but IDLE."""
+    return task_phase(record) is not TaskPhase.IDLE
 
 
 def _identity(task: ScheduledTask) -> str | None:
