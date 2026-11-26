@@ -146,6 +146,7 @@ def status_document(
         "targets": {
             name: {
                 "ownership": target.ownership.value,
+                "phase": target.phase.value,
                 "throttled": (
                     target.observed.throttled if target.observed else None
                 ),
@@ -166,6 +167,7 @@ def status_document(
             host: {
                 key: {
                     "ownership": task.ownership.value,
+                    "phase": task.phase.value,
                     "state": task.state.value if task.state else None,
                     "progress": task.progress,
                     "last_action": (
