@@ -23,3 +23,8 @@ manual decision.
 - Nothing is public until the release pull request is merged.
 - Deploying on the seedbox needs either a release or a locally built image
   on that host.
+
+## Amendment (2026-11-26)
+
+Pull requests build amd64 only (arm64 needs emulation and is slow);
+`main` and the release build both architectures.

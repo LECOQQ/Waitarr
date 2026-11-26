@@ -4,7 +4,7 @@
 
 ## Context
 
-The brief asks for qbit-ops' harness. A project template renders a project
+The requirement is qbit-ops' harness. A project template renders a project
 skeleton but lags behind qbit-ops: no Docker, gitleaks, Renovate,
 provenance or commit-body hooks, and none of `secrets`, `check-docs`,
 `check-ai`, `build`, `check-dist`, `check-image`.
@@ -25,3 +25,8 @@ provenance or commit-body hooks, and none of `secrets`, `check-docs`,
 
 - Gate scripts exist twice (qbit-ops and here); moving them into the
   project template is an open improvement.
+
+## Amendment (2026-11-26)
+
+Pull requests build the image for amd64 only; `main` and the release
+build both architectures (see ADR 0011).
