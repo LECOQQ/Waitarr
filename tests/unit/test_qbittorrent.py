@@ -178,6 +178,17 @@ def test_apply_writes_limits_and_mode_when_both_differ():
     )
 
 
+def test_apply_writes_the_limits_before_the_switch():
+    # The port's contract (`ThrottleTarget.apply`): the core retries a write
+    # found half-way only when it left the old switch with the new limits.
+    fake = FakeQbit()
+    target(fake).apply(HELD)
+    assert fake.writes == [
+        "app_set_preferences",
+        "transfer_set_speed_limits_mode",
+    ]
+
+
 def test_apply_leaves_the_limits_alone_when_they_already_match():
     fake = FakeQbit(alt_dl=1024, alt_up=2048)
     target(fake).apply(HELD)
