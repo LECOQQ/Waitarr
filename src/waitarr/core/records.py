@@ -14,7 +14,12 @@ from datetime import datetime
 from typing import Any
 
 from waitarr.core.model import Limits, TargetState
-from waitarr.core.reconcile import Ownership, TargetRecord
+from waitarr.core.reconcile import (
+    Ownership,
+    TargetRecord,
+    normalized,
+    target_phase,
+)
 from waitarr.core.tasks import TaskOwnership, TaskRecord, TaskWrite
 
 __all__ = [
@@ -228,6 +233,11 @@ def decode_state(raw: Mapping[str, object]) -> StateDocument:
             raise StateDocumentError(
                 f"target {name!r} is engaged without a recorded state"
             )
+        record = normalized(record)
+        try:
+            target_phase(record)
+        except ValueError as error:
+            raise StateDocumentError(f"target {name!r}: {error}") from error
         records[str(name)] = record
         last = entry.get("last_activity_at")
         if last is not None:

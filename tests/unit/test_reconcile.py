@@ -1,10 +1,15 @@
+import pytest
+
 from waitarr.core.model import Limits, TargetState
 from waitarr.core.reconcile import (
     Action,
     Ownership,
+    TargetPhase,
     TargetRecord,
+    holds_target,
     reconcile,
     restore,
+    target_phase,
 )
 
 OFF = TargetState(False, Limits(0, 0))
@@ -199,3 +204,57 @@ def test_an_unconfirmed_engage_nobody_needs_is_undone_not_finished():
     halfway = _step(record, TargetState(False, SLOW), throttle=False)
     assert halfway.action is Action.RELEASE
     assert halfway.write == OFF
+
+
+@pytest.mark.parametrize(
+    ("record", "phase"),
+    [
+        (TargetRecord(), TargetPhase.IDLE),
+        (
+            TargetRecord(
+                Ownership.ENGAGED,
+                before=OFF,
+                applied=HELD,
+                pending=HELD,
+                pending_from=OFF,
+            ),
+            TargetPhase.ENGAGING,
+        ),
+        (
+            TargetRecord(Ownership.ENGAGED, before=OFF, applied=HELD),
+            TargetPhase.ENGAGED,
+        ),
+        (
+            TargetRecord(
+                before=OFF, applied=HELD, pending=OFF, pending_from=HELD
+            ),
+            TargetPhase.RELEASING,
+        ),
+        (
+            TargetRecord(pending=OFF, pending_from=HELD),
+            TargetPhase.RESUMING,
+        ),
+        (TargetRecord(Ownership.YIELDED), TargetPhase.YIELDED_BLANK),
+        (
+            TargetRecord(Ownership.YIELDED, before=OFF, applied=HELD),
+            TargetPhase.YIELDED_HOLDING,
+        ),
+        (TargetRecord(before=OFF, applied=HELD), TargetPhase.IDLE),
+    ],
+)
+def test_a_record_has_one_phase_and_idle_is_the_only_one_not_held(
+    record, phase
+):
+    assert target_phase(record) is phase
+    assert holds_target(record) is (phase is not TargetPhase.IDLE)
+
+
+def test_an_engaged_record_is_only_a_would_engage_in_observation():
+    record = TargetRecord(Ownership.ENGAGED, before=OFF, applied=OFF)
+    assert target_phase(record, simulate=True) is TargetPhase.WOULD_ENGAGE
+    assert target_phase(record) is TargetPhase.ENGAGED
+
+
+def test_a_shape_the_machine_never_makes_has_no_phase():
+    with pytest.raises(ValueError, match="not a state Waitarr produces"):
+        target_phase(TargetRecord(Ownership.YIELDED, pending=OFF))
