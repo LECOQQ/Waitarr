@@ -109,6 +109,16 @@ def test_health_is_200_when_a_recent_tick_reached_every_service(make_rig):
     assert body["mode"] == "active"
     assert body["services"]["jellyfin"]["reachable"] is True
     assert body["targets"]["main"]["ownership"] == "idle"
+    assert body["targets"]["main"]["phase"] == "idle"
+
+
+def test_health_names_the_phase_of_a_throttled_target(make_rig):
+    rig = make_rig()
+    rig.source.sessions = [playback()]
+    rig.tick()
+    target = rig.health().json()["targets"]["main"]
+    assert target["ownership"] == "engaged"
+    assert target["phase"] == "engaged"
 
 
 def test_health_lists_the_sessions_being_watched_to_the_token_holder(make_rig):
@@ -425,6 +435,10 @@ def test_health_lists_the_tasks_waitarr_stopped(make_rig):
     assert set(body["tasks"]["jellyfin"]) == {"RefreshLibrary"}
     stopped = body["tasks"]["jellyfin"]["RefreshLibrary"]
     assert stopped["ownership"] == "stopped"
+    assert (
+        stopped["phase"]
+        == rig.engine.status().tasks["jellyfin"]["RefreshLibrary"].phase.value
+    )
     assert stopped["last_action"] == "stop"
     assert stopped["last_action_at"].startswith("2026-10-27T")
     assert stopped["state"] in ("Cancelling", "Idle")
