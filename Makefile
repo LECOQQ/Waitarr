@@ -1,6 +1,6 @@
 # Purpose: The complete development workflow for Waitarr.
-# Origin: rendered by starter-kits (kit poc, stack python-cli), then aligned
-# on qbit-ops' harness -- see docs/adr/0009-harness.md.
+# Origin: rendered by a project template (poc kit, python-cli stack),
+# then aligned on qbit-ops' harness -- see docs/adr/0009-harness.md.
 
 SHELL := /bin/bash
 .SHELLFLAGS := -eo pipefail -c
