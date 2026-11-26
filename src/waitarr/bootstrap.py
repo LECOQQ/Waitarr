@@ -1,10 +1,12 @@
 """Wire a configuration to concrete adapters. The only module that knows
-both the core and every adapter: a new source or target type is one
-entry in `SOURCE_FACTORIES` or `TARGET_FACTORIES`."""
+both the core and every adapter. A new source, target, task host or
+policy strategy is one entry in `SOURCE_FACTORIES`, `TARGET_FACTORIES`,
+`TASK_HOST_FACTORIES` or `POLICY_FACTORIES`."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 
 from qbit_core import QbitConfig
 
@@ -97,9 +99,15 @@ def build_heartbeat(config: AppConfig) -> Heartbeat:
     )
 
 
-def build_engine(config: AppConfig, *, simulate: bool | None = None) -> Engine:
+def build_engine(
+    config: AppConfig,
+    *,
+    simulate: bool | None = None,
+    clock: Callable[[], datetime] = utc_now,
+) -> Engine:
     """Build the engine. In observation mode every target and task host
-    is built read-only, so no code path below can reach a write."""
+    is built read-only, so no code path below can reach a write. `clock`
+    lets a test drive the wired engine."""
     observe = config.mode is Mode.OBSERVE if simulate is None else simulate
     return Engine(
         sources=[SOURCE_FACTORIES[s.type](s) for s in config.sources],
@@ -122,6 +130,7 @@ def build_engine(config: AppConfig, *, simulate: bool | None = None) -> Engine:
         heartbeat=build_heartbeat(config),
         simulate=observe,
         failure_threshold=config.notify.failure_threshold,
+        clock=clock,
     )
 
 

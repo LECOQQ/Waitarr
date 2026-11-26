@@ -17,17 +17,8 @@ from tests.integration.conftest import (
     Snapshot,
     free_port,
 )
-from waitarr.adapters.state_file import JsonStateFile
-from waitarr.bootstrap import (
-    SOURCE_FACTORIES,
-    TARGET_FACTORIES,
-    TASK_HOST_FACTORIES,
-    build_engine,
-    build_notifier,
-    build_policy,
-)
+from waitarr.bootstrap import build_engine
 from waitarr.config import load_config
-from waitarr.core.engine import Engine, TargetBinding, TaskBinding
 from waitarr.core.model import TaskState
 from waitarr.core.reconcile import Ownership
 from waitarr.core.tasks import TaskOwnership
@@ -242,27 +233,9 @@ username = "{qbit.username}"
             "WAITARR_MAIN_PASSWORD": qbit.password,
         },
     )
-    assert build_engine(config).simulate  # observe is the default wiring
     clock = FakeClock()
-    engine = Engine(
-        sources=[SOURCE_FACTORIES[s.type](s) for s in config.sources],
-        targets=[
-            TargetBinding(TARGET_FACTORIES[t.type](t, True), t.throttle)
-            for t in config.targets
-        ],
-        task_hosts=[
-            TaskBinding(
-                TASK_HOST_FACTORIES[s.type](s, True), s.tasks, s.suspend_tasks
-            )
-            for s in config.sources
-        ],
-        policy=build_policy(config),
-        store=JsonStateFile(config.state_file),
-        notifier=build_notifier(config),
-        heartbeat=RecordingHeartbeatStub(),
-        simulate=True,
-        clock=clock,
-    )
+    engine = build_engine(config, clock=clock)  # observe is the default
+    assert engine.simulate
     before = Snapshot.take(admin)
     jellyfin.run_task("RefreshLibrary")  # a task the active mode would stop
     spy = Spy(monkeypatch)
@@ -369,11 +342,6 @@ def test_shutdown_restore_starts_again_the_task_it_stopped(
     assert rig.engine.restore_all()
     assert jellyfin.tasks["RefreshLibrary"].state == TaskState.RUNNING.value
     assert not Snapshot.take(admin).throttled
-
-
-class RecordingHeartbeatStub:
-    def beat(self, *, healthy: bool, message: str) -> None:
-        return None
 
 
 def test_unthrottled_utp_and_lan_traffic_are_reported_never_fixed(

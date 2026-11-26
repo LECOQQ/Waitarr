@@ -19,6 +19,7 @@ from waitarr.config import (
     Mode,
     load_config,
 )
+from waitarr.core.model import Limits, TargetState
 from waitarr.core.ports import ServiceUnavailable, WriteRefused
 
 CONFIG = """
@@ -74,6 +75,18 @@ def test_the_task_host_is_read_only_exactly_in_observation(tmp_path, mode):
         # Writable: it gets as far as the (closed) port instead of refusing.
         with pytest.raises(ServiceUnavailable):
             binding.host.stop("an-id")
+
+
+@pytest.mark.parametrize("mode", [Mode.OBSERVE.value, Mode.ACTIVE.value])
+def test_the_target_is_read_only_exactly_in_observation(tmp_path, mode):
+    (binding,) = engine(tmp_path, mode=mode).bindings
+    if mode == Mode.OBSERVE:
+        with pytest.raises(WriteRefused):
+            binding.target.apply(TargetState(True, Limits(1, 1)))
+    else:
+        # Writable: it gets as far as the (closed) port instead of refusing.
+        with pytest.raises(ServiceUnavailable):
+            binding.target.apply(TargetState(True, Limits(1, 1)))
 
 
 def test_the_four_type_catalogues_name_the_same_types():
