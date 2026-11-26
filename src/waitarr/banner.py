@@ -20,7 +20,7 @@ from waitarr.config import (
 )
 from waitarr.core.model import ServiceVersion
 from waitarr.core.policy import PlaybackFilter
-from waitarr.core.units import format_duration, format_rate
+from waitarr.core.units import format_duration, format_limits
 
 __all__ = ["compatibility_warnings", "plain_url", "startup_block"]
 
@@ -114,9 +114,7 @@ def _source(source: SourceConfig, version: ServiceVersion | None) -> str:
 
 def _target(target: TargetConfig, version: ServiceVersion | None) -> str:
     limits = (
-        "throttle to "
-        f"{format_rate(target.throttle.download)} down / "
-        f"{format_rate(target.throttle.upload)} up"
+        f"throttle to {format_limits(target.throttle)}"
         if target.throttle is not None
         else "throttle to its own alternative limits"
     )

@@ -27,7 +27,7 @@ from waitarr.core.engine import TaskBinding
 from waitarr.core.model import DiagnosticSeverity
 from waitarr.core.ports import ServiceUnavailable
 from waitarr.core.records import StateDocumentError
-from waitarr.core.units import format_rate
+from waitarr.core.units import format_limits
 
 __all__ = ["LIBRARY_LEVELS", "app", "main"]
 
@@ -172,10 +172,8 @@ def check(config_path: ConfigOption = None) -> None:
         typer.echo(
             f"[OK  ] {binding.target.name}: alternative mode "
             f"{'on' if state.throttled else 'off'}, own alternative limits "
-            f"{format_rate(state.limits.download)} down / "
-            f"{format_rate(state.limits.upload)} up; would throttle to "
-            f"{format_rate(limits.download)} down / "
-            f"{format_rate(limits.upload)} up"
+            f"{format_limits(state.limits)}; would throttle to "
+            f"{format_limits(limits)}"
         )
     for binding in engine.task_bindings:
         _echo_tasks(binding)

@@ -72,7 +72,7 @@ from waitarr.core.tasks import (
     step_task,
     task_phase,
 )
-from waitarr.core.units import format_duration, format_rate
+from waitarr.core.units import format_duration, format_limits
 
 __all__ = [
     "Engine",
@@ -413,7 +413,7 @@ class Engine:
                         DiagnosticSeverity.WARNING,
                         f"{target.name}: no throttle limits are configured, "
                         "and its own alternative limits are "
-                        f"{_describe_limits(own)}: throttling would leave "
+                        f"{format_limits(own)}: throttling would leave "
                         "that direction unlimited. Set [throttle] download "
                         "and upload.",
                     )
@@ -1183,7 +1183,7 @@ class Engine:
                 "%s: %sthrottle (alternative limits on: %s)%s.",
                 name,
                 would,
-                _describe_limits(step.write.limits),
+                format_limits(step.write.limits),
                 why,
             )
         elif action is Action.RELEASE and step.write is not None:
@@ -1220,7 +1220,7 @@ class Engine:
                 "found before (%s), the switch stays as a human set it.",
                 name,
                 would,
-                _describe_limits(step.write.limits),
+                format_limits(step.write.limits),
             )
         elif action is Action.RESUME:
             logger.info(
@@ -1288,12 +1288,6 @@ def _session_line(playback: Playback, verb: str) -> str:
     return f"{who} {verb} {what}" + (f" ({where})" if where else "")
 
 
-def _describe_limits(limits: Limits) -> str:
-    return (
-        f"{format_rate(limits.download)} down, {format_rate(limits.upload)} up"
-    )
-
-
 def _describe_state(state: TargetState) -> str:
     mode = "on" if state.throttled else "off"
-    return f"alternative mode {mode}, limits {_describe_limits(state.limits)}"
+    return f"alternative mode {mode}, limits {format_limits(state.limits)}"
