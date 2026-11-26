@@ -15,7 +15,7 @@ from waitarr.adapters.jellyfin import JellyfinSource
 from waitarr.banner import compatibility_warnings, startup_block
 from waitarr.config import AppConfig
 from waitarr.core.engine import Engine, utc_now
-from waitarr.core.model import Diagnostic, ServiceVersion
+from waitarr.core.model import Diagnostic, DiagnosticSeverity, ServiceVersion
 from waitarr.core.ports import WriteRefused
 
 __all__ = ["Service"]
@@ -129,7 +129,7 @@ class Service:
                 continue
             log = (
                 logger.warning
-                if diagnostic.severity == "warning"
+                if diagnostic.severity is DiagnosticSeverity.WARNING
                 else (logger.info)
             )
             log("%s", diagnostic.message)

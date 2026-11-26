@@ -33,6 +33,7 @@ __all__ = [
     "NotifyConfig",
     "PolicyConfig",
     "SourceConfig",
+    "WEBHOOK_PATH",
     "TargetConfig",
     "load_config",
 ]
@@ -47,6 +48,9 @@ DEFAULT_TASKS = (
     "RefreshTrickplayImages",
 )
 DEFAULT_HTTP_PORT = 8778
+# The route the Jellyfin webhook posts to, served by the HTTP surface and
+# named in the startup block.
+WEBHOOK_PATH = "/hooks/jellyfin"
 
 _NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 _SECRET_KEYS = frozenset({"api_key", "password", "token", "apikey"})

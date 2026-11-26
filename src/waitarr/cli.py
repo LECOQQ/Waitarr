@@ -24,6 +24,7 @@ from waitarr.config import (
     load_config,
 )
 from waitarr.core.engine import TaskBinding
+from waitarr.core.model import DiagnosticSeverity
 from waitarr.core.ports import ServiceUnavailable
 from waitarr.core.records import StateDocumentError
 from waitarr.core.units import format_rate
@@ -181,7 +182,8 @@ def check(config_path: ConfigOption = None) -> None:
     for binding in engine.task_bindings:
         _echo_tasks(binding)
     for diagnostic in engine.diagnose():
-        mark = "WARN" if diagnostic.severity == "warning" else "NOTE"
+        warning = diagnostic.severity is DiagnosticSeverity.WARNING
+        mark = "WARN" if warning else "NOTE"
         typer.echo(f"[{mark}] {diagnostic.message}")
     raise typer.Exit(EXIT_OK if ok else EXIT_FAILURE)
 

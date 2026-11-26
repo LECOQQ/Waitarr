@@ -2,11 +2,17 @@ import logging
 from datetime import timedelta
 
 from tests.unit.test_config import MINIMAL, load
-from waitarr.core.model import Diagnostic
+from waitarr.core.model import Diagnostic, DiagnosticSeverity
 from waitarr.service import Service
 
-LAN = Diagnostic("main", "notice", "main: LAN peers are not rate-limited")
-UTP = Diagnostic("main", "warning", "main: µTP traffic is not rate-limited")
+LAN = Diagnostic(
+    "main", DiagnosticSeverity.NOTICE, "main: LAN peers are not rate-limited"
+)
+UTP = Diagnostic(
+    "main",
+    DiagnosticSeverity.WARNING,
+    "main: µTP traffic is not rate-limited",
+)
 
 
 class DiagnosingEngine:

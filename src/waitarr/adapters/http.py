@@ -20,6 +20,7 @@ from typing import cast
 from urllib.parse import parse_qs, urlsplit
 
 from waitarr import __version__
+from waitarr.config import WEBHOOK_PATH
 from waitarr.core.engine import EngineStatus
 from waitarr.core.model import ServiceVersion
 
@@ -133,7 +134,7 @@ def status_document(
         "warnings": [
             {
                 "target": d.target,
-                "severity": d.severity,
+                "severity": d.severity.value,
                 "message": d.message,
             }
             for d in status.diagnostics
@@ -212,7 +213,7 @@ class HttpSurface:
                 if not self._drain():
                     self._reply(400, {"error": "bad Content-Length"})
                     return
-                if parts.path != "/hooks/jellyfin" or not surface._webhook:
+                if parts.path != WEBHOOK_PATH or not surface._webhook:
                     self._reply(404, {"error": "not found"})
                     return
                 if not surface._authorised(
