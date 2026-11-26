@@ -139,9 +139,7 @@ def check(config_path: ConfigOption = None) -> None:
     typer.echo(f"Config: {config.path} (mode: {config.mode.value})")
     ok = True
     versions = engine.check_versions()
-    kinds = {s.name: "jellyfin" for s in config.sources} | {
-        t.name: "qbittorrent" for t in config.targets
-    }
+    kinds = config.service_kinds()
     for name, version in versions.items():
         assessment = assess(kinds[name], version)
         mark = {
