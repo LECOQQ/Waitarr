@@ -91,25 +91,12 @@ it.
 
 ### Crash and race resolution
 
-All of these are decided from what Jellyfin reports, never from time.
+Every case of a `stop` or a `start` that may not have landed is decided
+from what Jellyfin reports, never from time: see `_resolve_stop`,
+`_resolve_start` and `_from_owned` in `src/waitarr/core/tasks.py`, and
+`tests/unit/test_tasks.py`, one test per case.
 
-- `stop` pending, task `Running` with a different execution: the stop
-  landed and a person started it again; the task is yielded.
-- `stop` pending, task `Idle` with the same last execution: the execution
-  vanished without a result (Jellyfin restarted). The task is owned and
-  started again at the end of the hold if nothing ran since, because the
-  state found was "running". Residual risk: a read between the switch to
-  `Idle` and Jellyfin writing the last result sees the old identity; the
-  task is then forgotten without a restart, which is the safe side.
-- `stop` pending, task `Idle` with a newer `Cancelled` execution: the stop
-  landed, the task is owned.
-- `stop` pending, any other status (`Completed`, `Failed`...): the task
-  ended by itself and is forgotten.
-- `stop` pending, task `Cancelling`: nothing is written; the record is
-  kept until the first `Idle`.
-- `start` pending when the hold has come back: if the start did not land
-  (`Idle`, same execution), the task returns to "stopped" without being
-  started; if it landed, it is forgotten, and the next tick stops it like
-  any other.
-- A stopped task that Jellyfin no longer lists (a plugin removed) is
-  forgotten with a warning, and does not count as a failed restore.
+Residual risk: after a `stop` whose execution vanished (Jellyfin
+restarted), a read between the switch to `Idle` and Jellyfin writing the
+last result sees the old identity; the task is then forgotten without a
+restart, which is the safe side.
