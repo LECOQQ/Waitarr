@@ -20,7 +20,7 @@ from typing import cast
 from urllib.parse import parse_qs, urlsplit
 
 from waitarr import __version__
-from waitarr.config import WEBHOOK_PATH
+from waitarr.config import WEBHOOK_PATH, Mode
 from waitarr.core.engine import EngineStatus
 from waitarr.core.model import ServiceVersion
 
@@ -106,7 +106,7 @@ def status_document(
         state = "ok" if healthy else "degraded"
     document: dict[str, object] = {
         "status": state,
-        "mode": "observe" if status.simulate else "active",
+        "mode": (Mode.OBSERVE if status.simulate else Mode.ACTIVE).value,
         "version": __version__,
         "started_at": _iso(status.started_at),
         "last_tick_at": _iso(status.last_tick_at),

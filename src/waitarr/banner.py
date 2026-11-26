@@ -22,7 +22,7 @@ from waitarr.core.model import ServiceVersion
 from waitarr.core.policy import PlaybackFilter
 from waitarr.core.units import format_duration, format_limits
 
-__all__ = ["compatibility_warnings", "plain_url", "startup_block"]
+__all__ = ["compatibility_warnings", "mode_label", "plain_url", "startup_block"]
 
 # The playback filter lists, in the order the configuration documents them.
 _FILTER_LISTS = (
@@ -43,6 +43,11 @@ def plain_url(url: str) -> str:
     return f"{parts.scheme}://{host}{parts.path}".rstrip("/")
 
 
+def mode_label(simulate: bool) -> str:
+    """The one word the logs use for the mode."""
+    return "OBSERVATION" if simulate else "ACTIVE"
+
+
 def startup_block(
     config: AppConfig,
     versions: Mapping[str, ServiceVersion | None],
@@ -51,11 +56,12 @@ def startup_block(
     http_port: int | None = None,
 ) -> list[str]:
     """The lines logged once at start, in reading order."""
-    mode = (
-        "OBSERVATION mode: decisions are logged, nothing is ever written"
+    effect = (
+        "decisions are logged, nothing is ever written"
         if simulate
-        else "ACTIVE mode: targets are throttled during playback"
+        else "targets are throttled during playback"
     )
+    mode = f"{mode_label(simulate)} mode: {effect}"
     lines = [
         f"Waitarr {__version__} starting in {mode}",
         f"Polling every {format_duration(config.poll_interval)}, releasing "

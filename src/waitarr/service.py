@@ -12,7 +12,7 @@ from types import FrameType
 from waitarr import __version__
 from waitarr.adapters.http import HttpSurface, status_document
 from waitarr.adapters.jellyfin import JellyfinSource
-from waitarr.banner import compatibility_warnings, startup_block
+from waitarr.banner import compatibility_warnings, mode_label, startup_block
 from waitarr.config import AppConfig
 from waitarr.core.engine import Engine, utc_now
 from waitarr.core.model import Diagnostic, DiagnosticSeverity, ServiceVersion
@@ -74,7 +74,7 @@ class Service:
             logger.error(
                 "Waitarr %s could not start (%s mode).",
                 __version__,
-                "OBSERVATION" if self._engine.simulate else "ACTIVE",
+                mode_label(self._engine.simulate),
             )
             raise
         versions = self._engine.check_versions()
