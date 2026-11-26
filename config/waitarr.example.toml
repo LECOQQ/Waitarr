@@ -68,7 +68,8 @@ listen = "0.0.0.0:8778"
 webhook = false
 
 [notify]
-# Consecutive failed reads of a service before a failure notification.
+# Consecutive failures of a service before a failure notification: failed
+# reads, and for a target refused writes (counted apart from reads).
 # Destinations come from the environment only: WAITARR_NOTIFY_WEBHOOK_URL,
 # WAITARR_NOTIFY_NTFY_URL (+ WAITARR_NOTIFY_NTFY_TOKEN),
 # WAITARR_HEALTHCHECKS_URL.

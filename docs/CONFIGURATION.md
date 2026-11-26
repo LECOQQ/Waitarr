@@ -122,7 +122,7 @@ webhook only wakes the loop ([ADR 0010](adr/0010-polling-first-webhook-as-nudge.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `failure_threshold` | `2` | Consecutive failed reads of a service before a failure notification. |
+| `failure_threshold` | `2` | Consecutive failures of a service before a failure notification: failed reads, and for a target also refused writes. Reads and writes are counted apart, each reset only by its own success. |
 | `healthchecks_interval` | `"60s"` | Minimum time between two success pings. |
 
 Destinations, from the environment only (each also accepts `_FILE`):
