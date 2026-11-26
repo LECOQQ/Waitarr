@@ -78,7 +78,7 @@ lint: ## qa: Check style and types without modifying files
 	@$(PY) black --check $(PY_PATHS)
 	@$(PY) pyright
 
-test: ## qa: Run the hermetic test suite (no Docker, no network)
+test: ## qa: Run the unit suite (no network; the gitleaks rule test uses Docker unless gitleaks is installed)
 	@$(PY) pytest -m "not docker and not image and not network and not live"
 
 test-live: sync ## qa: Read-only tests against the real Jellyfin of WAITARR_LIVE_JELLYFIN_URL (never in CI)
