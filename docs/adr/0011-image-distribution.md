@@ -15,14 +15,13 @@ manual decision.
 - `publish-container.yml` (from qbit-ops) pushes version tags, and moves
   `latest` only for the newest release; release-please dispatches it
   when a release pull request is merged.
-- On the build machine, the observation deployment runs an image built locally
-  (`waitarr:local`).
+- A machine that builds the image locally runs it as `waitarr:local`.
 
 ## Consequences
 
 - Nothing is public until the release pull request is merged.
-- Deploying on the seedbox needs either a release or a locally built image
-  on that host.
+- Deploying on a host needs either a release or a locally built image on
+  that host.
 
 ## Amendment (2026-11-26)
 
