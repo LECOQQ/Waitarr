@@ -46,9 +46,12 @@ from waitarr.core.reconcile import (
     Action,
     Ownership,
     Step,
+    TargetPhase,
     TargetRecord,
+    holds_target,
     reconcile,
     restore,
+    target_phase,
 )
 from waitarr.core.records import (
     StateDocument,
@@ -59,11 +62,14 @@ from waitarr.core.records import (
 from waitarr.core.tasks import (
     TaskAction,
     TaskOwnership,
+    TaskPhase,
     TaskRecord,
     TaskStep,
     TaskWrite,
+    holds_task,
     restore_task,
     step_task,
+    task_phase,
 )
 from waitarr.core.units import format_duration, format_rate
 
@@ -130,6 +136,7 @@ class TargetStatus:
     observed: TargetState | None
     last_action: Action | None = None
     last_action_at: datetime | None = None
+    phase: TargetPhase = TargetPhase.IDLE
 
 
 @dataclass(frozen=True)
@@ -137,6 +144,7 @@ class TaskStatus:
     """A task Waitarr owns (stopped it, or yielded it to a human)."""
 
     ownership: TaskOwnership
+    phase: TaskPhase
     state: TaskState | None = None
     progress: float | None = None
     last_action: TaskAction | None = None
@@ -276,13 +284,13 @@ class Engine:
         owned = sorted(
             name
             for name, record in document.records.items()
-            if record.ownership is not Ownership.IDLE or record.pending
+            if holds_target(record)
         )
         owned_tasks = sorted(
             (source, key)
             for source, records in document.tasks.items()
             for key, record in records.items()
-            if record.ownership is not TaskOwnership.IDLE or record.pending
+            if holds_task(record)
         )
         configured = {b.target.name for b in self._targets}
         configured_sources = {b.host.name for b in self._task_hosts}
@@ -342,12 +350,13 @@ class Engine:
             for name, record in document.records.items():
                 if name in self._runtime.targets:
                     self._runtime.targets[name] = TargetStatus(
-                        record.ownership, None
+                        record.ownership, None, phase=target_phase(record)
                     )
             for source, key in owned_tasks:
                 if source in self._runtime.tasks:
+                    task = document.tasks[source][key]
                     self._runtime.tasks[source][key] = TaskStatus(
-                        document.tasks[source][key].ownership
+                        task.ownership, task_phase(task)
                     )
 
     def check_versions(self) -> dict[str, ServiceVersion | None]:
@@ -524,7 +533,7 @@ class Engine:
         for binding in self._targets:
             target = binding.target
             record = self._record(target.name)
-            if record.ownership is Ownership.IDLE and record.pending is None:
+            if not holds_target(record):
                 continue
             observed = self._read_target(target, now)
             if observed is None:
@@ -676,11 +685,13 @@ class Engine:
                 last_action_at = previous.last_action_at
             else:
                 last_action, last_action_at = action, now
+            record = self._record(name)
             self._runtime.targets[name] = TargetStatus(
-                ownership=self._record(name).ownership,
+                ownership=record.ownership,
                 observed=observed,
                 last_action=last_action,
                 last_action_at=last_action_at,
+                phase=target_phase(record, simulate=self._simulate),
             )
 
     # -- tasks -------------------------------------------------------------
@@ -878,7 +889,7 @@ class Engine:
         records = {
             key: record
             for key, record in self._task_records(source).items()
-            if record.ownership is not TaskOwnership.IDLE or record.pending
+            if holds_task(record)
         }
         if not records:
             return True
@@ -950,6 +961,7 @@ class Engine:
                 last_action, last_action_at = action, now
             tasks[key] = TaskStatus(
                 ownership=record.ownership,
+                phase=task_phase(record, simulate=self._simulate),
                 state=observed.state if observed else None,
                 progress=observed.progress if observed else None,
                 last_action=last_action,
@@ -1214,19 +1226,31 @@ class Engine:
         parts = [f"{'observe' if self._simulate else 'active'} mode"]
         parts.append(f"{len(status.playbacks)} session(s)")
         for name, target in status.targets.items():
-            parts.append(f"{name}={target.ownership.value}")
+            parts.append(f"{name}={target.phase.value}")
         held = sum(
             1
             for tasks in status.tasks.values()
             for task in tasks.values()
-            if task.ownership is TaskOwnership.STOPPED
+            if task.phase in _HELD_PHASES
         )
         if held:
-            parts.append(f"{held} task(s) held")
+            parts.append(
+                f"{held} task(s) would be held"
+                if self._simulate
+                else f"{held} task(s) held"
+            )
         down = [n for n, s in status.services.items() if s.reachable is False]
         if down:
             parts.append("unreachable: " + ", ".join(down))
         return ", ".join(parts)
+
+
+_HELD_PHASES = {
+    TaskPhase.STOPPING,
+    TaskPhase.HELD,
+    TaskPhase.WOULD_HOLD,
+    TaskPhase.STARTING,
+}
 
 
 def _task_label(task: ScheduledTask | None, key: str) -> str:

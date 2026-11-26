@@ -1,3 +1,5 @@
+import ast
+import inspect
 from datetime import timedelta
 
 import pytest
@@ -13,11 +15,12 @@ from tests.fakes import (
     RecordingNotifier,
     playback,
 )
+from waitarr.core import engine as engine_module
 from waitarr.core.engine import UNREACHABLE_REMINDER, Engine, TargetBinding
 from waitarr.core.model import Limits, TargetState
 from waitarr.core.policy import GlobalHysteresisPolicy
 from waitarr.core.ports import Severity
-from waitarr.core.reconcile import Ownership
+from waitarr.core.reconcile import Ownership, TargetPhase
 from waitarr.core.records import StateDocumentError
 
 HELD = TargetState(True, THROTTLE)
@@ -297,15 +300,17 @@ def test_a_confirmed_release_leaves_no_pending_origin_in_the_file():
     assert persisted["pending_from"] is None
 
 
-def test_a_release_that_did_not_land_is_shown_as_idle_but_still_owned():
+def test_a_release_that_did_not_land_is_shown_as_releasing():
     w = World()
     w.source.sessions = [playback()]
     w.tick()
     w.target.fail_writes = True
     w.source.sessions = []
     w.tick(200)
-    assert w.engine.status().targets["main"].ownership is Ownership.IDLE
-    assert w.heartbeat.beats[-1][1].count("main=idle") == 1
+    status = w.engine.status().targets["main"]
+    assert status.ownership is Ownership.IDLE
+    assert status.phase is TargetPhase.RELEASING
+    assert w.heartbeat.beats[-1][1].count("main=releasing") == 1
     with pytest.raises(StateDocumentError, match="still owns main"):
         Engine(
             sources=[w.source],
@@ -448,3 +453,24 @@ def test_diagnostics_are_kept_for_the_status():
     w.target.diagnostics = []
     w.engine.diagnose()
     assert w.engine.status().diagnostics == ()
+
+
+def test_the_engine_asks_the_record_instead_of_combining_its_fields():
+    tree = ast.parse(inspect.getsource(engine_module))
+    combined = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.BoolOp)
+        and isinstance(node.op, ast.Or)
+        and any(
+            isinstance(n, ast.Attribute) and n.attr == "ownership"
+            for v in node.values
+            for n in ast.walk(v)
+        )
+        and any(
+            isinstance(n, ast.Attribute) and n.attr == "pending"
+            for v in node.values
+            for n in ast.walk(v)
+        )
+    ]
+    assert combined == []
