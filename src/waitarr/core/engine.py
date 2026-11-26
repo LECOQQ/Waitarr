@@ -654,13 +654,16 @@ class Engine:
             target.apply(step.write)
             confirmed = target.read()
         except ServiceUnavailable as error:
-            self._service_failed(target.name, f"write failed: {error}", now)
+            self._service_failed(
+                target.name, f"write failed: {error}", now, write=True
+            )
             logger.error(
                 "%s: write failed (%s); it will be retried next tick.",
                 target.name,
                 error,
             )
             return False
+        self._service_ok(target.name, now, write=True)
         if confirmed != step.write:
             logger.warning(
                 "%s: wrote %s but read back %s; retrying next tick.",
@@ -1067,8 +1070,18 @@ class Engine:
                 label,
             )
 
-    def _service_ok(self, name: str, now: datetime) -> None:
-        tracker = self._trackers.setdefault(name, _Tracker())
+    def _tracker(self, name: str, write: bool) -> _Tracker:
+        """Reads and writes of a target count their failures apart: each
+        is reset only by its own success, or one answering the other's
+        failure would flip the notifications every tick."""
+        return self._trackers.setdefault(
+            f"{name}/write" if write else name, _Tracker()
+        )
+
+    def _service_ok(
+        self, name: str, now: datetime, *, write: bool = False
+    ) -> None:
+        tracker = self._tracker(name, write)
         if tracker.notified:
             self._notifier.notify(
                 Notification(
@@ -1094,8 +1107,10 @@ class Engine:
                     health, reachable=True, error=None, since=now
                 )
 
-    def _service_failed(self, name: str, error: str, now: datetime) -> None:
-        tracker = self._trackers.setdefault(name, _Tracker())
+    def _service_failed(
+        self, name: str, error: str, now: datetime, *, write: bool = False
+    ) -> None:
+        tracker = self._tracker(name, write)
         tracker.failures += 1
         if tracker.down_since is None:
             tracker.down_since = now

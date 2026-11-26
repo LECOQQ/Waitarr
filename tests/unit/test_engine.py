@@ -27,7 +27,15 @@ HELD = TargetState(True, THROTTLE)
 
 
 class World:
-    def __init__(self, *, simulate=False, store=None, targets=None, clock=None):
+    def __init__(
+        self,
+        *,
+        simulate=False,
+        store=None,
+        targets=None,
+        clock=None,
+        failure_threshold=2,
+    ):
         self.clock = clock or FakeClock()
         self.source = FakeSource()
         self.targets = targets or [FakeTarget("main")]
@@ -42,6 +50,7 @@ class World:
             notifier=self.notifier,
             heartbeat=self.heartbeat,
             simulate=simulate,
+            failure_threshold=failure_threshold,
             clock=self.clock,
         )
         self.engine.load()
@@ -273,6 +282,22 @@ def test_a_failed_write_is_retried():
     w.target.fail_writes = False
     w.tick()
     assert w.target.state == HELD
+
+
+def test_a_target_that_reads_but_refuses_writes_notifies_once():
+    w = World(failure_threshold=1)
+    w.target.fail_writes = True
+    w.source.sessions = [playback()]
+    for _ in range(4):
+        w.tick()
+    assert [n.severity for n in w.notifier.sent] == [Severity.FAILURE]
+    w.target.fail_writes = False
+    w.tick()
+    assert w.target.state == HELD
+    assert [n.severity for n in w.notifier.sent] == [
+        Severity.FAILURE,
+        Severity.RECOVERY,
+    ]
 
 
 def test_observation_mode_never_writes_and_never_persists():
