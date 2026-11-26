@@ -6,6 +6,7 @@ reach up into the wiring or the entrypoints.
 """
 
 import ast
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,17 +16,6 @@ SRC = Path(__file__).parents[2] / "src"
 # package directory (under src/) -> modules it must never import. A
 # forbidden name matches itself and everything below it, nothing else.
 FORBIDDEN: dict[str, tuple[str, ...]] = {
-    "waitarr/core": (
-        "waitarr.adapters",
-        "waitarr.config",
-        "waitarr.bootstrap",
-        "waitarr.cli",
-        "waitarr.service",
-        "requests",
-        "qbit_core",
-        "qbittorrentapi",
-        "typer",
-    ),
     "waitarr/adapters": (
         "waitarr.bootstrap",
         "waitarr.cli",
@@ -62,6 +52,17 @@ def violations(imports: set[str], forbidden: tuple[str, ...]) -> list[str]:
     )
 
 
+def outsiders(imports: set[str], allowed: tuple[str, ...]) -> list[str]:
+    """Every import that is neither the standard library nor `allowed`
+    (itself or below it): a package added later is refused by default."""
+    return sorted(
+        name
+        for name in imports
+        if name.split(".")[0] not in sys.stdlib_module_names
+        and not any(name == a or name.startswith(a + ".") for a in allowed)
+    )
+
+
 def modules(directory: str) -> list[Path]:
     files = sorted((SRC / directory).rglob("*.py"))
     assert files, f"no module found under {directory}"
@@ -77,6 +78,30 @@ def test_module_respects_its_layer(directory, path):
     package = ".".join(path.relative_to(SRC).with_suffix("").parts[:-1])
     imports = imported_modules(path.read_text(encoding="utf-8"), package)
     assert violations(imports, FORBIDDEN[directory]) == []
+
+
+# The core imports the standard library and itself, nothing else.
+CORE_ALLOWED = ("waitarr.core",)
+
+
+@pytest.mark.parametrize("path", modules("waitarr/core"), ids=lambda p: p.name)
+def test_core_imports_only_the_standard_library_and_itself(path):
+    package = ".".join(path.relative_to(SRC).with_suffix("").parts[:-1])
+    imports = imported_modules(path.read_text(encoding="utf-8"), package)
+    assert outsiders(imports, CORE_ALLOWED) == []
+
+
+def test_the_allow_list_refuses_any_other_package():
+    found = imported_modules(
+        "import httpx\nfrom waitarr import adapters\nimport json\n"
+        "from waitarr.core import model\nfrom . import policy\n",
+        "waitarr.core",
+    )
+    assert outsiders(found, CORE_ALLOWED) == [
+        "httpx",
+        "waitarr",
+        "waitarr.adapters",
+    ]
 
 
 def test_the_detector_sees_plain_and_from_imports():
