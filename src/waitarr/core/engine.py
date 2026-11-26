@@ -229,6 +229,7 @@ class Engine:
         self._clock = clock
         self._started_at = clock()
         self._document = StateDocument()
+        self._persisted: dict[str, object] = {}
         self._activity_unknown = False
         self._trackers: dict[str, _Tracker] = {}
         self._lock = threading.Lock()
@@ -271,6 +272,7 @@ class Engine:
         restore is worse than refusing to start.
         """
         document = decode_state(self._store.load())
+        self._persisted = encode_state(document)
         owned = sorted(
             name
             for name, record in document.records.items()
@@ -574,7 +576,11 @@ class Engine:
     def _save(self) -> None:
         if self._simulate:
             return
-        self._store.save(encode_state(self._document))
+        encoded = encode_state(self._document)
+        if encoded == self._persisted:
+            return  # at rest: no rewrite, no fsync
+        self._store.save(encoded)
+        self._persisted = encoded
 
     def _read_playbacks(self, now: datetime) -> list[Playback] | None:
         playbacks: list[Playback] = []

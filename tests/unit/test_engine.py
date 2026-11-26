@@ -285,6 +285,22 @@ def test_observation_mode_never_writes_and_never_persists():
     assert w.store.saves == 0
 
 
+def test_an_idle_tick_writes_no_state_file_and_a_transition_does():
+    w = World()
+    w.tick()  # the first tick records the idle target, once
+    saved = w.store.saves
+    for _ in range(5):
+        w.tick()
+    assert w.store.saves == saved
+    w.source.sessions = [playback()]
+    w.tick()
+    assert w.store.saves > saved
+    saved = w.store.saves
+    w.source.sessions = []
+    w.tick(600)
+    assert w.store.saves > saved
+
+
 def test_observation_mode_reports_what_it_would_do(caplog):
     caplog.set_level("INFO", logger="waitarr")
     w = World(simulate=True)
