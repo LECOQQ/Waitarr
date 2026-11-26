@@ -168,11 +168,11 @@ With `suspend_tasks = false`, nothing is stopped; the listed tasks seen
 running during the hold are still logged. The API key must belong to an
 administrator: every task route answers 403 to a user token.
 
-The yielding rule: a task Waitarr stopped and found running again was
-started by a person. Waitarr leaves it running until the hold ends, then
-forgets it, and starts nothing. If a key leaves `tasks`, or
-`suspend_tasks` turns `false`, while Waitarr owns the task, it is still
-started again when the hold ends. A source removed from the file while
+The yielding rule ([ADR 0013](adr/0013-suspend-jellyfin-tasks.md)): a
+task Waitarr stopped and found running again was started by a person, and
+stays running. If a key leaves `tasks`, or `suspend_tasks` turns `false`,
+while Waitarr owns the task, it is still started again when the hold
+ends. A source removed from the file while
 Waitarr owns tasks of it stops Waitarr from starting: run
 `waitarr restore --yes` with the previous file.
 
