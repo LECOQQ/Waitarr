@@ -113,6 +113,22 @@ def encode_state(document: StateDocument) -> dict[str, object]:
     }
 
 
+def _decode_instant(raw: object, where: str) -> datetime:
+    """An ISO 8601 instant with an offset: a naive one cannot be compared
+    with the clock, so it is refused here rather than at every tick."""
+    try:
+        if not isinstance(raw, str):
+            raise ValueError("not a string")
+        instant = datetime.fromisoformat(raw)
+        if instant.tzinfo is None:
+            raise ValueError("no UTC offset")
+    except ValueError as error:
+        raise StateDocumentError(
+            f"{where}: bad last_activity_at {raw!r}"
+        ) from error
+    return instant
+
+
 def _optional_text(entry: Mapping[str, object], field_name: str, where: str):
     value = entry.get(field_name)
     if value is not None and not isinstance(value, str):
@@ -174,12 +190,7 @@ def _decode_tasks(
         }
         last = entry.get("last_activity_at")
         if last is not None:
-            try:
-                memory[str(source)] = datetime.fromisoformat(str(last))
-            except ValueError as error:
-                raise StateDocumentError(
-                    f"{where}: bad last_activity_at {last!r}"
-                ) from error
+            memory[str(source)] = _decode_instant(last, where)
     return tasks, memory
 
 
@@ -220,12 +231,7 @@ def decode_state(raw: Mapping[str, object]) -> StateDocument:
         records[str(name)] = record
         last = entry.get("last_activity_at")
         if last is not None:
-            try:
-                memory[str(name)] = datetime.fromisoformat(str(last))
-            except ValueError as error:
-                raise StateDocumentError(
-                    f"target {name!r}: bad last_activity_at {last!r}"
-                ) from error
+            memory[str(name)] = _decode_instant(last, f"target {name!r}")
     tasks, task_memory = _decode_tasks(raw, version)
     return StateDocument(
         records=records,
