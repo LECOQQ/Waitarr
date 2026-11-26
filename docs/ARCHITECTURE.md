@@ -76,7 +76,8 @@ probed on Jellyfin: [ADR 0013](adr/0013-suspend-jellyfin-tasks.md).
 - **A task host**: an adapter implementing `TaskHost` (it has no
   `version()`: its source reports it), a factory in
   `bootstrap.TASK_HOST_FACTORIES`.
-- **A policy** (disk-aware): a `ThrottlePolicy`. `Playback.media_path`
+- **A policy** (disk-aware): a `ThrottlePolicy` and an entry in
+  `bootstrap.POLICY_FACTORIES`. `Playback.media_path`
   already carries the file being played when the source exposes it;
   [ADR 0002](adr/0002-ports-and-adapters.md) describes the v2 path.
 
