@@ -150,7 +150,7 @@ def check(config_path: ConfigOption = None) -> None:
             Verdict.UNSUPPORTED: "WARN",
             Verdict.UNKNOWN: "FAIL",
         }[assessment.verdict]
-        ok = ok and version is not None
+        ok = ok and assessment.verdict is not Verdict.UNKNOWN
         typer.echo(f"[{mark}] {name}: {assessment.message}")
     for source in engine.sources:
         try:
