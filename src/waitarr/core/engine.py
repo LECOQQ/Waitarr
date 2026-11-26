@@ -515,7 +515,7 @@ class Engine:
                 record = self._record(binding.target.name)
                 if record.ownership is Ownership.ENGAGED:
                     logger.info(
-                        "[observe] %s: would restore the state found before.",
+                        "%s: [observe] would restore the state found before.",
                         binding.target.name,
                     )
             for task_binding in self._task_hosts:
@@ -1016,9 +1016,7 @@ class Engine:
         label = _task_label(observed, key)
         action = step.action
         if action is TaskAction.STOP and observed is not None:
-            why = ""
-            if demand is not None and demand.playbacks:
-                why = " -- " + "; ".join(p.describe() for p in demand.playbacks)
+            why = _why(demand)
             logger.info(
                 "%s: %sstop task %s (%s)%s.",
                 source,
@@ -1177,9 +1175,7 @@ class Engine:
         binding: TargetBinding,
     ) -> None:
         would = "[observe] would " if self._simulate else ""
-        why = ""
-        if demand is not None and demand.playbacks:
-            why = " -- " + "; ".join(p.describe() for p in demand.playbacks)
+        why = _why(demand)
         action = step.action
         if action is Action.ENGAGE and step.write is not None:
             logger.info(
@@ -1266,6 +1262,12 @@ _HELD_PHASES = {
     TaskPhase.WOULD_HOLD,
     TaskPhase.STARTING,
 }
+
+
+def _why(demand: Demand | None) -> str:
+    if demand is None or not demand.playbacks:
+        return ""
+    return " -- " + "; ".join(p.describe() for p in demand.playbacks)
 
 
 def _task_label(task: ScheduledTask | None, key: str) -> str:

@@ -377,6 +377,17 @@ def test_observation_mode_reports_what_it_would_do(caplog):
     assert any("main: [observe] would release" in m for m in messages)
 
 
+def test_the_observation_marker_follows_the_name_in_every_line(caplog):
+    caplog.set_level("INFO", logger="waitarr")
+    w = World(simulate=True)
+    w.source.sessions = [playback()]
+    w.tick()
+    w.engine.restore_all()
+    marked = [m for m in _messages(caplog) if "[observe]" in m]
+    assert any("would restore" in m for m in marked)
+    assert all(m.startswith("main: [observe] ") for m in marked)
+
+
 def test_a_corrupt_state_file_refuses_to_start():
     store = MemoryStore({"schema_version": 99, "targets": {}})
     with pytest.raises(StateDocumentError):
