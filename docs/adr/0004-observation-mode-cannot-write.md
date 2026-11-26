@@ -5,7 +5,7 @@
 ## Context
 
 Waitarr runs against production in observation mode first. That mode
-must never call a write API, and the brief asks for proof.
+must never call a write API, and the project requires proof.
 
 ## Decision
 

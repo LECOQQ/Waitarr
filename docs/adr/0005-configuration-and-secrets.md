@@ -5,7 +5,8 @@
 
 ## Context
 
-The brief allows YAML or TOML, and forbids secrets in the example file.
+The requirements allow YAML or TOML, and forbid secrets in the example
+file.
 
 ## Decision
 

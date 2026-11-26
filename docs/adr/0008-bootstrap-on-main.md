@@ -4,9 +4,9 @@
 
 ## Context
 
-The brief asks for GitHub Flow, forbids merging a pull request without
-review, and expects an open release-please pull request, which only
-appears from commits on `main`.
+The requirements are GitHub Flow, no merge of a pull request without
+review, and an open release-please pull request, which only appears
+from commits on `main`.
 
 ## Decision
 
@@ -18,5 +18,3 @@ request.
 
 - The release-please pull request exists and stays open; nothing is
   released.
-- The friction is recorded in the agent's working notes, which are not
-  published.
