@@ -61,8 +61,9 @@ class Rig:
         self.clock.advance(seconds)
         self.engine.tick()
 
-    def health(self):
-        return requests.get(self.base + "/healthz", timeout=3)
+    def health(self, token=None):
+        headers = {"X-Waitarr-Token": token} if token else {}
+        return requests.get(self.base + "/healthz", headers=headers, timeout=3)
 
 
 @pytest.fixture
@@ -96,12 +97,93 @@ def test_health_is_200_when_a_recent_tick_reached_every_service(make_rig):
     assert body["targets"]["main"]["ownership"] == "idle"
 
 
-def test_health_lists_the_sessions_being_watched(make_rig):
+def test_health_lists_the_sessions_being_watched_to_the_token_holder(make_rig):
+    rig = make_rig(token="hook-token")
+    rig.source.sessions = [playback("alice", title="A film")]
+    rig.tick()
+    (session,) = rig.health(token="hook-token").json()["sessions"]
+    assert (session["user"], session["title"]) == ("alice", "A film")
+    assert {"device", "client"} <= set(session)
+
+
+@pytest.mark.parametrize("sent", [None, "wrong"])
+def test_health_keeps_who_watches_what_from_a_caller_without_the_token(
+    make_rig, sent
+):
+    rig = make_rig(token="hook-token")
+    rig.source.sessions = [playback("alice", title="A film")]
+    rig.tick()
+    response = rig.health(token=sent)
+    assert response.status_code == 200
+    (session,) = response.json()["sessions"]
+    assert set(session) == {"source", "paused"}
+    assert "alice" not in response.text
+    assert "A film" not in response.text
+
+
+def test_health_shows_no_session_detail_when_no_token_is_configured(make_rig):
     rig = make_rig()
     rig.source.sessions = [playback("alice", title="A film")]
     rig.tick()
-    (session,) = rig.health().json()["sessions"]
-    assert (session["user"], session["title"]) == ("alice", "A film")
+    (session,) = rig.health(token="anything").json()["sessions"]
+    assert set(session) == {"source", "paused"}
+
+
+def test_health_keeps_the_internal_url_of_a_service_from_a_caller(make_rig):
+    from waitarr.core.ports import ServiceUnavailable
+
+    def unreachable():
+        raise ServiceUnavailable(
+            "cannot reach Jellyfin at http://media-host:8096 (ConnectError)"
+        )
+
+    rig = make_rig(token="hook-token")
+    rig.source.playbacks = unreachable
+    rig.tick()
+    body = rig.health().json()
+    assert body["services"]["jellyfin"]["reachable"] is False
+    assert "media-host" not in rig.health().text
+    assert "cannot reach Jellyfin" in body["services"]["jellyfin"]["error"]
+    assert "media-host" in rig.health(token="hook-token").text
+
+
+def test_the_server_header_names_no_version(make_rig):
+    from waitarr import __version__
+
+    server = make_rig().health().headers["Server"]
+    assert __version__ not in server
+    assert "Python" not in server
+
+
+@pytest.mark.parametrize("length", ["abc", "-5"])
+def test_a_content_length_that_is_not_a_size_is_a_400(make_rig, length):
+    import socket
+
+    rig = make_rig(webhook=True)
+    with socket.create_connection(("127.0.0.1", rig.surface.port), 3) as s:
+        s.sendall(
+            b"POST /hooks/jellyfin HTTP/1.0\r\n"
+            b"Content-Length: " + length.encode() + b"\r\n\r\n"
+        )
+        reply = s.makefile("rb").readline()
+    assert reply.split()[1] == b"400"
+    assert rig.woken == 0
+
+
+def test_status_with_the_token_shows_the_sessions(make_rig, monkeypatch):
+    from typer.testing import CliRunner
+
+    from waitarr import cli
+
+    rig = make_rig(token="hook-token")
+    rig.source.sessions = [playback("alice", title="A film")]
+    rig.tick()
+    runner = CliRunner()
+    anonymous = runner.invoke(cli.app, ["status", "--url", rig.base])
+    assert "alice" not in anonymous.output
+    monkeypatch.setenv("WAITARR_WEBHOOK_TOKEN", "hook-token")
+    known = runner.invoke(cli.app, ["status", "--url", rig.base])
+    assert "alice" in known.output
 
 
 def test_health_is_503_when_the_source_is_unreachable(make_rig):
