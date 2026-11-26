@@ -31,7 +31,7 @@ restore_on_exit = true
 log_level = "INFO"
 
 [policy]
-# The v1 strategy: throttle every target while anything plays.
+# The current strategy: throttle every target while anything plays.
 strategy = "global"
 
 # How long after the last playback the speed comes back. Covers a pause,

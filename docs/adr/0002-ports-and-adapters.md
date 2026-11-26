@@ -42,3 +42,10 @@ beside the factory in `waitarr.bootstrap` and the parser in
 `waitarr.config`; a test ties the catalogues together. A policy is one
 entry in `bootstrap.POLICY_FACTORIES`. The core's dependency rule is an
 allow-list: the standard library and `waitarr.core` only.
+
+## Amendment: what "v1" and "v2" mean (2026-11-26)
+
+"v1" and "v2", here and in ADR 0006 and 0007, are not release numbers:
+"v1" is the current scope and its global policy, "v2" the disk-aware
+policy that is not built yet. Other documents say "the current policy"
+and "the disk-aware policy".
