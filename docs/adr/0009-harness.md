@@ -11,9 +11,8 @@ provenance or commit-body hooks, and none of `secrets`, `check-docs`,
 
 ## Decision
 
-- The project template (`kit:poc`, `stack:python-cli`,
-  `architecture:python-clean`, GitHub CI and release blocks) was rendered to compare and to seed
-  the agent rules, `LICENSE` and `.editorconfig`.
+- The project template (with its GitHub CI and release blocks) was rendered
+  to compare and to seed the agent rules, `LICENSE` and `.editorconfig`.
 - The Makefile, gate scripts (`scripts/check_*.py`, `docker_tags.py`),
   hooks and workflows follow qbit-ops, copied verbatim where generic.
 - Improvements over qbit-ops: `deps-audit` (pip-audit, from
