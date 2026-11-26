@@ -17,8 +17,8 @@ convention no gate checks.
 Two entry points share this check:
 
 - the `commit-msg` hook, which stops a single message at creation time;
-- `--range`, which the orchestrator runs over a work-item before
-  integrating, catching anything that reached the branch with hooks
+- `--range`, which runs over a branch before it is integrated,
+  catching anything that reached the branch with hooks
   bypassed or uninstalled.
 """
 
@@ -30,6 +30,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+# The one list of names that identify an agent. `check_ai_hygiene.py`
+# reads it too, so a name added here is refused by every rule that
+# refuses an agent.
+AGENT_NAMES = ("claude", "anthropic", "gpt", "copilot", "cursor", "codex")
+AGENT_NAMES_PATTERN = "|".join(AGENT_NAMES)
+
 # Matched case-insensitively at the start of a line, the shape Git uses
 # for trailers. The agent name is searched anywhere in the value, not
 # just at its start: "GitHub Copilot" and "Claude Opus 5" both name an
@@ -39,7 +45,7 @@ from pathlib import Path
 # co-author stays legitimate, so the check narrows the history it
 # protects rather than banning the trailer outright.
 FORBIDDEN_TRAILER = re.compile(
-    r"^\s*Co-Authored-By:.*\b(claude|anthropic|gpt|copilot|cursor)\b",
+    rf"^\s*Co-Authored-By:.*\b({AGENT_NAMES_PATTERN})\b",
     re.IGNORECASE,
 )
 
@@ -49,7 +55,7 @@ FORBIDDEN_TRAILER = re.compile(
 # wild; the others are matched by the same rule rather than waiting to
 # meet each one.
 FORBIDDEN_SESSION = re.compile(
-    r"^\s*(claude|anthropic|codex|copilot|cursor)[- ]session\s*:",
+    rf"^\s*({AGENT_NAMES_PATTERN})[- ]session\s*:",
     re.IGNORECASE,
 )
 
@@ -58,7 +64,7 @@ FORBIDDEN_SESSION = re.compile(
 # message by copy, and there it is only noise -- matched on the tool
 # name so the emoji and the link format can change without a hole.
 FORBIDDEN_GENERATED = re.compile(
-    r"generated with.*\b(claude code|copilot|cursor|codex)\b",
+    rf"generated with.*\b({AGENT_NAMES_PATTERN})\b",
     re.IGNORECASE,
 )
 

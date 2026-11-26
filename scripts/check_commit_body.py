@@ -3,10 +3,10 @@
 
 This repository's commit bodies are short bullets, one line per change.
 Enforced mechanically, for the same reason the provenance trailer is:
-a rule that lives only in the history, never in `AGENTS.md` and never
-in a hook, is a rule an agent reading the last few commits can infer
-as drift instead of convention -- and each prose commit that slips
-through makes the next one likelier.
+a rule that lives only in the history, never written down and never
+in a hook, is a rule a contributor reading the last few commits can
+infer as drift instead of convention -- and each prose commit that
+slips through makes the next one likelier.
 
 What this checks is deliberately narrow: the body's first non-empty line
 starts a bullet, and no bullet wraps earlier than it had to. It does not
@@ -22,8 +22,8 @@ broke a line early looks like it needed two, and often does not.
 Two entry points, mirroring `check_commit_provenance.py`:
 
 - the `commit-msg` hook, stopping a message at creation time;
-- `--range`, which the orchestrator runs over a work-item before
-  integrating, catching anything that reached the branch with hooks
+- `--range`, which runs over a branch before it is integrated,
+  catching anything that reached the branch with hooks
   bypassed or uninstalled.
 """
 
