@@ -18,7 +18,7 @@ tags = ["waitarr"]
 
 [[rules]]
 # Private files of agent-harness never belong in this repository.
-id = "agent-harness-private-marker"
+id = "ai-hygiene-private-marker"
 description = "Private file of agent-harness committed to a product"
 regex = '''agent-harness[:]private'''
 keywords = ["agent-harness"]
