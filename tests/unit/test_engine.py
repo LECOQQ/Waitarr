@@ -418,6 +418,15 @@ def _messages(caplog):
     return [r.getMessage() for r in caplog.records]
 
 
+def test_a_throttle_is_logged_in_the_grammar_of_the_check_command(caplog):
+    caplog.set_level("INFO", logger="waitarr")
+    w = World(simulate=True)
+    w.source.sessions = [playback()]
+    w.tick()
+    (line,) = [m for m in _messages(caplog) if "would throttle" in m]
+    assert "on: 1 KiB/s down / 1 KiB/s up)" in line
+
+
 def test_each_session_change_is_logged_just_before_the_decision(caplog):
     caplog.set_level("INFO", logger="waitarr")
     w = World(simulate=True)

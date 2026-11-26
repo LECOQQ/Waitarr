@@ -7,8 +7,11 @@ import math
 import re
 from datetime import timedelta
 
+from waitarr.core.model import Limits
+
 __all__ = [
     "format_duration",
+    "format_limits",
     "format_rate",
     "parse_duration",
     "parse_rate",
@@ -95,6 +98,13 @@ def format_rate(bytes_per_second: int) -> str:
             text = f"{amount:.1f}".removesuffix(".0")
             return f"{text} {unit}/s"
     return f"{bytes_per_second} B/s"
+
+
+def format_limits(limits: Limits) -> str:
+    """One grammar for a pair of limits, in the logs and in `check`."""
+    return (
+        f"{format_rate(limits.download)} down / {format_rate(limits.upload)} up"
+    )
 
 
 def format_duration(delta: timedelta) -> str:

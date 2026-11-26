@@ -2,8 +2,10 @@ from datetime import timedelta
 
 import pytest
 
+from waitarr.core.model import Limits
 from waitarr.core.units import (
     format_duration,
+    format_limits,
     format_rate,
     parse_duration,
     parse_rate,
@@ -90,6 +92,10 @@ def test_parse_rate_rejects_negative_numbers_and_booleans(value):
 )
 def test_format_rate(value, text):
     assert format_rate(value) == text
+
+
+def test_format_limits_names_both_directions():
+    assert format_limits(Limits(0, 1536)) == "unlimited down / 1.5 KiB/s up"
 
 
 @pytest.mark.parametrize(
