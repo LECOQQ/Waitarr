@@ -80,7 +80,7 @@ probed on Jellyfin: [ADR 0013](adr/0013-suspend-jellyfin-tasks.md).
 - **A policy** (disk-aware): a `ThrottlePolicy` and an entry in
   `bootstrap.POLICY_FACTORIES`. `Playback.media_path`
   already carries the file being played when the source exposes it;
-  [ADR 0002](adr/0002-ports-and-adapters.md) describes the v2 path.
+  [ADR 0002](adr/0002-ports-and-adapters.md) describes the disk-aware policy.
 
 ## 🛡️ Observation mode
 
