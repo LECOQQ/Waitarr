@@ -30,6 +30,7 @@ from waitarr.core.ports import (
 )
 
 __all__ = [
+    "POLICY_FACTORIES",
     "SOURCE_FACTORIES",
     "TARGET_FACTORIES",
     "TASK_HOST_FACTORIES",
@@ -61,11 +62,16 @@ TASK_HOST_FACTORIES: dict[str, Callable[[SourceConfig, bool], TaskHost]] = {
 }
 
 
+POLICY_FACTORIES: dict[str, Callable[[AppConfig], ThrottlePolicy]] = {
+    "global": lambda c: GlobalHysteresisPolicy(
+        release_after=c.policy.release_after,
+        playback_filter=c.policy.playback_filter,
+    ),
+}
+
+
 def build_policy(config: AppConfig) -> ThrottlePolicy:
-    return GlobalHysteresisPolicy(
-        release_after=config.policy.release_after,
-        playback_filter=config.policy.playback_filter,
-    )
+    return POLICY_FACTORIES[config.policy.strategy](config)
 
 
 def build_notifier(config: AppConfig) -> Notifier:

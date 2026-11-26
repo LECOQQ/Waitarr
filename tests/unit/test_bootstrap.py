@@ -1,7 +1,23 @@
+from dataclasses import replace
+
 import pytest
 
-from waitarr.bootstrap import build_engine
-from waitarr.config import DEFAULT_TASKS, Mode, load_config
+from waitarr.bootstrap import (
+    POLICY_FACTORIES,
+    SOURCE_FACTORIES,
+    TARGET_FACTORIES,
+    TASK_HOST_FACTORIES,
+    build_engine,
+    build_policy,
+)
+from waitarr.compatibility import MATRIX
+from waitarr.config import (
+    DEFAULT_TASKS,
+    SOURCE_TYPES,
+    TARGET_TYPES,
+    Mode,
+    load_config,
+)
 from waitarr.core.ports import ServiceUnavailable, WriteRefused
 
 CONFIG = """
@@ -57,6 +73,26 @@ def test_the_task_host_is_read_only_exactly_in_observation(tmp_path, mode):
         # Writable: it gets as far as the (closed) port instead of refusing.
         with pytest.raises(ServiceUnavailable):
             binding.host.stop("an-id")
+
+
+def test_the_four_type_catalogues_name_the_same_types():
+    # Adding a type to one catalogue and forgetting another is otherwise a
+    # KeyError at startup, or a service with no compatibility row.
+    assert set(SOURCE_TYPES) == set(SOURCE_FACTORIES)
+    assert set(TARGET_TYPES) == set(TARGET_FACTORIES)
+    assert set(TASK_HOST_FACTORIES) <= set(SOURCE_FACTORIES)
+    assert set(MATRIX) == set(SOURCE_FACTORIES) | set(TARGET_FACTORIES)
+
+
+def test_the_configured_strategy_picks_the_policy(tmp_path, monkeypatch):
+    chosen = object()
+    monkeypatch.setitem(POLICY_FACTORIES, "other", lambda config: chosen)
+    path = tmp_path / "waitarr.toml"
+    path.write_text(CONFIG.format(mode="observe", extra=""), encoding="utf-8")
+    config = load_config(path, SECRETS)
+    assert build_policy(config) is not chosen
+    other = replace(config, policy=replace(config.policy, strategy="other"))
+    assert build_policy(other) is chosen
 
 
 def test_a_simulation_forced_over_an_active_config_is_read_only(tmp_path):
