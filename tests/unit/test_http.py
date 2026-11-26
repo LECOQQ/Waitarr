@@ -372,11 +372,15 @@ def test_the_webhook_token_never_reaches_the_log(make_rig, caplog):
 
 
 def test_health_lists_the_warnings_found_at_the_last_check(make_rig):
-    from waitarr.core.model import Diagnostic
+    from waitarr.core.model import Diagnostic, DiagnosticSeverity
 
     rig = make_rig()
     rig.target.diagnostics = [
-        Diagnostic("main", "warning", "main: µTP traffic is not rate-limited")
+        Diagnostic(
+            "main",
+            DiagnosticSeverity.WARNING,
+            "main: µTP traffic is not rate-limited",
+        )
     ]
     rig.engine.diagnose()
     rig.tick()

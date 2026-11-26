@@ -7,6 +7,7 @@ from enum import StrEnum
 
 __all__ = [
     "Diagnostic",
+    "DiagnosticSeverity",
     "Limits",
     "Playback",
     "ScheduledTask",
@@ -71,16 +72,20 @@ class Playback:
         return f"{who} playing {what}{suffix}"
 
 
+class DiagnosticSeverity(StrEnum):
+    WARNING = "warning"  # throttling leaks
+    NOTICE = "notice"  # it may
+
+
 @dataclass(frozen=True)
 class Diagnostic:
     """A setting that defeats or weakens throttling, found at a check.
 
-    `severity` is "warning" (throttling leaks) or "notice" (it may).
     Waitarr reports these; it never changes the setting itself.
     """
 
     target: str
-    severity: str
+    severity: DiagnosticSeverity
     message: str
 
 

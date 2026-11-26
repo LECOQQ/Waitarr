@@ -15,7 +15,13 @@ from qbit_core.features.transfer import (
 )
 from qbit_core.qbit.client import is_qbit_error
 
-from waitarr.core.model import Diagnostic, Limits, ServiceVersion, TargetState
+from waitarr.core.model import (
+    Diagnostic,
+    DiagnosticSeverity,
+    Limits,
+    ServiceVersion,
+    TargetState,
+)
 from waitarr.core.ports import ServiceUnavailable, WriteRefused
 
 __all__ = [
@@ -153,7 +159,7 @@ def diagnose_preferences(
         found.append(
             Diagnostic(
                 name,
-                "warning",
+                DiagnosticSeverity.WARNING,
                 f"{name}: qBittorrent's speed scheduler is enabled. It flips "
                 "the same alternative limits switch, and Waitarr reads each "
                 "flip as a human decision that it must leave alone.",
@@ -166,7 +172,7 @@ def diagnose_preferences(
         found.append(
             Diagnostic(
                 name,
-                "warning",
+                DiagnosticSeverity.WARNING,
                 f"{name}: µTP traffic is not rate-limited: throttling will "
                 f'leak. In qBittorrent, check {_RATE_LIMITS} > "Apply rate '
                 'limit to µTP protocol".',
@@ -176,7 +182,7 @@ def diagnose_preferences(
         found.append(
             Diagnostic(
                 name,
-                "notice",
+                DiagnosticSeverity.NOTICE,
                 f"{name}: peers on the local network are not rate-limited, "
                 "so one of them can still read the disk at full speed. If "
                 f'that matters, check {_RATE_LIMITS} > "Apply rate limit to '

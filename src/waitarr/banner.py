@@ -12,7 +12,12 @@ from urllib.parse import urlsplit
 
 from waitarr import __version__
 from waitarr.compatibility import Verdict, assess
-from waitarr.config import AppConfig, SourceConfig, TargetConfig
+from waitarr.config import (
+    WEBHOOK_PATH,
+    AppConfig,
+    SourceConfig,
+    TargetConfig,
+)
 from waitarr.core.model import ServiceVersion
 from waitarr.core.policy import PlaybackFilter
 from waitarr.core.units import format_duration, format_rate
@@ -58,7 +63,7 @@ def startup_block(
         "playback",
     ]
     if http_port is not None:
-        webhook = ", webhook on /hooks/jellyfin" if config.http.webhook else ""
+        webhook = f", webhook on {WEBHOOK_PATH}" if config.http.webhook else ""
         lines.append(
             f"Health endpoint on http://{config.http.host}:{http_port}"
             f"/healthz{webhook}"

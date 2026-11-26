@@ -23,6 +23,7 @@ from datetime import UTC, datetime, timedelta
 
 from waitarr.core.model import (
     Diagnostic,
+    DiagnosticSeverity,
     Limits,
     Playback,
     ScheduledTask,
@@ -397,7 +398,7 @@ class Engine:
                 found.append(
                     Diagnostic(
                         target.name,
-                        "warning",
+                        DiagnosticSeverity.WARNING,
                         f"{target.name}: cannot be checked ({error})",
                     )
                 )
@@ -409,7 +410,7 @@ class Engine:
                 found.append(
                     Diagnostic(
                         target.name,
-                        "warning",
+                        DiagnosticSeverity.WARNING,
                         f"{target.name}: no throttle limits are configured, "
                         "and its own alternative limits are "
                         f"{_describe_limits(own)}: throttling would leave "
@@ -434,7 +435,7 @@ class Engine:
             return [
                 Diagnostic(
                     source,
-                    "warning",
+                    DiagnosticSeverity.WARNING,
                     f"{source}: its scheduled tasks cannot be checked "
                     f"({error}); none is stopped until they can be read.",
                 )
@@ -442,7 +443,7 @@ class Engine:
         return [
             Diagnostic(
                 source,
-                "warning",
+                DiagnosticSeverity.WARNING,
                 f"{source}: the task '{key}' is configured but the host does "
                 "not list it (a plugin may be missing); it is ignored.",
             )

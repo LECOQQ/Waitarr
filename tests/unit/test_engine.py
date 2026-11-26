@@ -17,7 +17,7 @@ from tests.fakes import (
 )
 from waitarr.core import engine as engine_module
 from waitarr.core.engine import UNREACHABLE_REMINDER, Engine, TargetBinding
-from waitarr.core.model import Limits, TargetState
+from waitarr.core.model import DiagnosticSeverity, Limits, TargetState
 from waitarr.core.policy import GlobalHysteresisPolicy
 from waitarr.core.ports import Severity
 from waitarr.core.reconcile import Ownership, TargetPhase
@@ -481,7 +481,9 @@ def test_diagnostics_are_kept_for_the_status():
 
     w = World()
     leak = Diagnostic(
-        "main", "warning", "main: µTP traffic is not rate-limited"
+        "main",
+        DiagnosticSeverity.WARNING,
+        "main: µTP traffic is not rate-limited",
     )
     w.target.diagnostics = [leak]
     assert w.engine.diagnose() == [leak]
