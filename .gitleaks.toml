@@ -26,12 +26,13 @@ secretGroup = 1
 tags = ["waitarr"]
 
 [[rules]]
-# Private files of agent-harness never belong in this repository.
+# Private agent files never belong in this repository. The pattern is
+# written so that it never matches its own text, and keeps the marker's text.
 id = "ai-hygiene-private-marker"
-description = "Private file of agent-harness committed to a product"
+description = "Private agent file committed to a product"
 regex = '''agent-harness[:]private'''
 keywords = ["agent-harness"]
-tags = ["agent-harness", "private"]
+tags = ["ai-hygiene", "private"]
 
   # A line that names the marker on purpose carries the hygiene pragma.
   [rules.allowlist]
