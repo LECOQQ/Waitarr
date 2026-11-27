@@ -1,8 +1,7 @@
 # What is specific to Waitarr: the Python matrix, the secret scan, the
-# disposable-container suite and the image build. ci.yml is the two-tier CI of
-# the harness, written by `agent-harness ci init` (regenerate it with
-# `agent-harness ci init --aside` and compare): nothing project-specific goes
-# there.
+# disposable-container suite and the image build. ci.yml is a generated
+# two-tier CI, regenerated from its template rather than edited: nothing
+# project-specific goes there.
 name: Project
 
 on:
