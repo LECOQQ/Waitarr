@@ -1,5 +1,69 @@
 # Changelog
 
+## [0.3.0](https://github.com/LECOQQ/Waitarr/compare/v0.2.0...v0.3.0) (2026-11-27)
+
+
+### Features
+
+* **http:** show the phase of each target and task in /healthz ([1157153](https://github.com/LECOQQ/Waitarr/commit/115715369938c79eb9ac4466fbca050b6fc08107))
+
+
+### Bug Fixes
+
+* **cli:** accept only http and https in status --url ([f9b81a0](https://github.com/LECOQQ/Waitarr/commit/f9b81a0fa5eb6a76c41a6d985c1582fe43efd342))
+* **cli:** assess each service by its configured type in check ([cd15e68](https://github.com/LECOQQ/Waitarr/commit/cd15e688145c55c06390ad24b9f4f2361697d03a))
+* **cli:** fail check when a service version cannot be read ([c58968f](https://github.com/LECOQQ/Waitarr/commit/c58968f9bc4fb2801983acbd614d6c6c79bc2b9f))
+* **cli:** keep the https to plain http fallback warning visible ([6b65c83](https://github.com/LECOQQ/Waitarr/commit/6b65c83aa1d1a0f06910abf0976a80b76610b3ef))
+* **compat:** call a version between tested ones by its name ([fa7f147](https://github.com/LECOQQ/Waitarr/commit/fa7f1474bc1d1c679373022ca14618f846424361))
+* **config:** give each setting one contract and refuse empty values ([87cecb0](https://github.com/LECOQQ/Waitarr/commit/87cecb0bd0ef92069adbec8d1e0c2f142398504e))
+* **config:** refuse a name or URL with a trailing newline ([6e36ce9](https://github.com/LECOQQ/Waitarr/commit/6e36ce967c024218758375268503b6e58322bcce))
+* **docker:** upgrade the OS packages of the runtime image ([5260d5f](https://github.com/LECOQQ/Waitarr/commit/5260d5f3c8a03450074dcd53bbf9192e497aa14d))
+* **engine:** clear pending_from with pending once a write is confirmed ([fcd0ba3](https://github.com/LECOQQ/Waitarr/commit/fcd0ba3046cfabbb3fdb247110397fb5e4a0be13))
+* **engine:** count read and write failures of a target apart ([5aa99c0](https://github.com/LECOQQ/Waitarr/commit/5aa99c088a378c45a7312f259711d8d3c7942365))
+* **engine:** name the phases in status and heartbeat, one ownership test ([7630a19](https://github.com/LECOQQ/Waitarr/commit/7630a19a10dd42c6f9b006cee4f3b7ff34f450bc))
+* **engine:** put the observe marker after the name, share the reason ([7252455](https://github.com/LECOQQ/Waitarr/commit/7252455c6033f6c6d5ee4866aa20d81679f688a8))
+* **engine:** skip the state write when a tick changed nothing ([d404076](https://github.com/LECOQQ/Waitarr/commit/d4040767fce0551cdf2c24a4d0b0aa781f850a4f))
+* **http:** keep the versions off /healthz for a caller without the token ([5654301](https://github.com/LECOQQ/Waitarr/commit/5654301fa1119030fc3ea90886dea619fe1ee095))
+* **http:** mark /healthz when the library folders are unreadable ([3ad2e5c](https://github.com/LECOQQ/Waitarr/commit/3ad2e5c11eadf3bb02e436753c5f079e89999aa0))
+* **http:** report degraded when the first tick never comes ([4480e6d](https://github.com/LECOQQ/Waitarr/commit/4480e6d16e02a7a410a73b726d1c4b98a2403159))
+* **http:** serve who watches what only to the token holder ([a5836e2](https://github.com/LECOQQ/Waitarr/commit/a5836e2818987000ceb37bac18663b312af8c4c4))
+* **jellyfin:** warn once when the library folders cannot be read ([41342d9](https://github.com/LECOQQ/Waitarr/commit/41342d96eae6eaa2a6c678e62285bef72abdb26b))
+* **policy:** clamp an activity memory from the future to now ([a304d0d](https://github.com/LECOQQ/Waitarr/commit/a304d0da94a6724bbe6c8ae9ae25785d087a749c))
+* **records:** refuse a last_activity_at without a UTC offset ([7c86040](https://github.com/LECOQQ/Waitarr/commit/7c8604040ce62a424ef9f6f9ced3cb3f577c77f1))
+* **records:** refuse the target shapes the machine never writes ([be25ef6](https://github.com/LECOQQ/Waitarr/commit/be25ef692f89c13a54dda83fe35fbf66866e86b8))
+* **sast:** fetch the opengrep v2 binary under its new name ([08c7c88](https://github.com/LECOQQ/Waitarr/commit/08c7c888301678b70fb43338a72835d3a3574543))
+* **scripts:** refuse Codex as a co-author from one list of agent names ([a5dcd8c](https://github.com/LECOQQ/Waitarr/commit/a5dcd8c1ad65dfae36b87bbaa42226433ed43a11))
+
+
+### Performance Improvements
+
+* **cli:** keep the adapters out of the health probe ([43b950b](https://github.com/LECOQQ/Waitarr/commit/43b950bfcaf84fc79732f311a25382c42ebce675))
+* **http:** wake the server thread once a second and on stop ([2f1271c](https://github.com/LECOQQ/Waitarr/commit/2f1271cedab22028ec92f349e9a3a7ed0e23b494))
+
+
+### Documentation
+
+* **adr:** accept ADR 0016 and keep its figures without the story ([d10870d](https://github.com/LECOQQ/Waitarr/commit/d10870dbef47085927101392769766fc58715c83))
+* **adr:** describe image distribution without a real deployment ([f870630](https://github.com/LECOQQ/Waitarr/commit/f870630f4c58d755063c888af2782929a8149652))
+* **adr:** drop references to unpublished files ([f079ee1](https://github.com/LECOQQ/Waitarr/commit/f079ee152b7578dfcb2e7af5b43b654073bbde11))
+* **adr:** drop the template labels from ADR 0009 ([24891dd](https://github.com/LECOQQ/Waitarr/commit/24891dd611d6ae4748d61d3a82f94e1f780c21d2))
+* **adr:** point ADR 0013 at the code for the recovery cases ([fdba992](https://github.com/LECOQQ/Waitarr/commit/fdba992daa41951afd084af5b56c02cf0b59c8f4))
+* **adr:** say pull requests build amd64 only ([8052fb4](https://github.com/LECOQQ/Waitarr/commit/8052fb4e6cd85d03218af8c56bba31af57881a98))
+* **adr:** state the current design, not how it came to be ([4e7e569](https://github.com/LECOQQ/Waitarr/commit/4e7e569c495dd639024212e272f1635eb45bf6fa))
+* **architecture:** list banner.py in the module map ([e069bbf](https://github.com/LECOQQ/Waitarr/commit/e069bbf92976f7de33a78e001cf1e3b1ae7b7d3f))
+* **config:** attribute each healthz phase to what shows it ([1a0b759](https://github.com/LECOQQ/Waitarr/commit/1a0b759e9d4225f5d63102db442298c59a2725cb))
+* **config:** count refused writes toward the failure threshold ([4823661](https://github.com/LECOQQ/Waitarr/commit/482366121b2743cc5a782bd4cd41841dfbce9f34))
+* **config:** document name limits, healthz field and test scope ([c0f34ad](https://github.com/LECOQQ/Waitarr/commit/c0f34ad76a0ce398a78c7f6790cf18378bacb4fa))
+* **config:** document the phase /healthz shows per target and task ([246ffb0](https://github.com/LECOQQ/Waitarr/commit/246ffb00d161a7d006c9c39cce170144e6399909))
+* **config:** say check fails on an unreadable service version ([e394b94](https://github.com/LECOQQ/Waitarr/commit/e394b94836f40670e072a81bfacfa9782a7d2a75))
+* link the task facts and the yielding rule to ADR 0013 ([a56d2af](https://github.com/LECOQQ/Waitarr/commit/a56d2af4da80c79d3cecab11277293d0374eda85))
+* name the project template generically in the harness ADR ([712d559](https://github.com/LECOQQ/Waitarr/commit/712d559e211c8fe46ec654f95ebbe9cf89022be5))
+* **notify:** list the source key of the webhook body ([75d03a8](https://github.com/LECOQQ/Waitarr/commit/75d03a83aef8f629387b8edb630c824dc999b5ce))
+* **readme:** say which contention Waitarr protects against ([2a1734a](https://github.com/LECOQQ/Waitarr/commit/2a1734a0ca4fade314c7778f8d3938431c2aa291))
+* **reconcile:** drop a state count the enum already gives ([55b1efd](https://github.com/LECOQQ/Waitarr/commit/55b1efd42aa14fd83f5933a65dec245112dacc0b))
+* say what v1 and v2 mean, and stop using them ([5e20e17](https://github.com/LECOQQ/Waitarr/commit/5e20e179ff9849ff71ef37d7a46a4bfcaf95eb91))
+* state the write order in the port and align ADR 0002 ([ea95e7a](https://github.com/LECOQQ/Waitarr/commit/ea95e7a4852f58f7a6adb285e23a7771c7436baf))
+
 ## [0.2.0](https://github.com/LECOQQ/Waitarr/compare/v0.1.1...v0.2.0) (2026-10-31)
 
 
