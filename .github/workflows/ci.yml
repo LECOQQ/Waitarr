@@ -46,9 +46,16 @@ jobs:
       - name: Check the form of the pull request
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           python3 - <<'PY'
           import os, re, sys
+          # A bot writes its own body: exempt by its login, given by the forge, never by its
+          # branch name or by what the body says.
+          author = os.environ.get("PR_AUTHOR", "")
+          if author.lower() in {"dependabot[bot]", "github-actions[bot]", "renovate[bot]"}:
+              print(f"::notice::pull request from the bot {author}: no form required")
+              sys.exit(0)
           body = os.environ.get("PR_BODY", "")
           missing = [
               name
