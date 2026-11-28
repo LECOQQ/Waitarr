@@ -3,13 +3,24 @@
 Waitarr is a small hexagon: a core that decides, ports it drives, and
 one adapter per service.
 
-```text
-            ┌──────────────────── waitarr.core ────────────────────┐
-Jellyfin ──▶│ ActivitySource ─▶ ThrottlePolicy ─▶ reconcile ─▶ Engine │──▶ ThrottleTarget ──▶ qBittorrent
-            │                                       ▲            │──▶ TaskHost ──▶ Jellyfin tasks
-            │                     StateStore ◀──────┴────────────┘   │──▶ Notifier, Heartbeat
-            └──────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    JF[("Jellyfin<br/>sessions")]
+    subgraph core["waitarr.core"]
+        direction LR
+        AS(["ActivitySource"]) --> TP["ThrottlePolicy"] --> RC["reconcile"] --> EN["Engine"]
+        SS(["StateStore"]) <--> EN
+        EN --> TT(["ThrottleTarget"])
+        EN --> TH(["TaskHost"])
+        EN --> NH(["Notifier, Heartbeat"])
+    end
+    JF --> AS
+    TT --> QB[("qBittorrent<br/>alternative limits")]
+    TH --> JT[("Jellyfin<br/>scheduled tasks")]
+    SS --- SF[("state file")]
 ```
+
+Rounded boxes are the ports; what lies outside the core is an adapter.
 
 ## 📦 Layout
 
@@ -61,6 +72,19 @@ src/waitarr/
 
 The ownership states (`idle`, `engaged`, `yielded`) and why a human
 decision is never overwritten: [ADR 0003](adr/0003-ownership-state-machine.md).
+
+```mermaid
+stateDiagram-v2
+    [*] --> idle
+    idle --> engaged: throttle asked, target free / write the throttle
+    idle --> yielded: throttle asked, target already throttled
+    engaged --> idle: no throttle asked / write back the state found
+    engaged --> yielded: target changed outside Waitarr
+    yielded --> idle: no throttle asked / forget, restore the limits found if only the switch was turned off
+```
+
+One record per target, decided by the pure `reconcile` function. A
+write is first recorded as `pending` and cleared once read back.
 
 The task machine identifies an execution by the `StartTimeUtc` Jellyfin
 reports, never by Waitarr's clock, and a task by its `Key`; the `Id` is
