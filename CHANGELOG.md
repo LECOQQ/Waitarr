@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/LECOQQ/Waitarr/compare/v0.3.0...v0.3.1) (2026-11-28)
+
+
+### Documentation
+
+* **architecture:** draw the hexagon and the state machine in Mermaid ([6c91e3a](https://github.com/LECOQQ/Waitarr/commit/6c91e3a8b4a2e598764e335a6929174511e20c51))
+
 ## [0.3.0](https://github.com/LECOQQ/Waitarr/compare/v0.2.0...v0.3.0) (2026-11-27)
 
 
